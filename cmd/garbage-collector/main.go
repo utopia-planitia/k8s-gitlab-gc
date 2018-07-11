@@ -24,6 +24,8 @@ func main() {
 	maxReviewNamespaceAge = flag.Int64("maxReviewNamespaceAge", 60*60*24*2, "max age for review namespaces")
 	var maxBuildNamespaceAge *int64
 	maxBuildNamespaceAge = flag.Int64("maxBuildNamespaceAge", 60*60*6, "max age for build testing namespaces")
+	var optOutAnnotations *string
+	optOutAnnotations = flag.String("optOutAnnotations", "disable-automatic-garbage-collection", "annotation to protect namespaces from deletion")
 	flag.Parse()
 
 	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
@@ -40,7 +42,7 @@ func main() {
 	if err != nil {
 		log.Printf("failed to clean up gitlab executors: %s", err)
 	}
-	err = gc.ContinuousIntegrationNamespaces(client.CoreV1(), strings.Split(*protectedBranches, ","), *maxBuildNamespaceAge, *maxReviewNamespaceAge)
+	err = gc.ContinuousIntegrationNamespaces(client.CoreV1(), strings.Split(*protectedBranches, ","), strings.Split(*optOutAnnotations, ","), *maxBuildNamespaceAge, *maxReviewNamespaceAge)
 	if err != nil {
 		log.Printf("failed to clean up ci namespaces: %s", err)
 	}

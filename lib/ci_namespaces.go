@@ -9,7 +9,7 @@ import (
 )
 
 // ContinuousIntegrationNamespaces removes no longer used namespaces
-func ContinuousIntegrationNamespaces(client corev1.CoreV1Interface, protectedBranches []string, maxTestingAge, maxReviewAge int64) error {
+func ContinuousIntegrationNamespaces(client corev1.CoreV1Interface, protectedBranches, optOutAnnotations []string, maxTestingAge, maxReviewAge int64) error {
 
 	// TODO: remove ci namespaces if branch is gone
 	// TODO: remove ci namespaces if nothing got updated for 2 days (only clean up .*-ci-.* and keep master / stage / develop)
@@ -34,6 +34,10 @@ func ContinuousIntegrationNamespaces(client corev1.CoreV1Interface, protectedBra
 			continue
 		}
 
+		if hasOptedOut(ns.ObjectMeta.Annotations, optOutAnnotations) {
+			continue
+		}
+
 		isHashbased, err := isHashbased(name)
 		if err != nil {
 			return fmt.Errorf("failed to check for hash based namespace '%s': %s", name, err)
@@ -55,6 +59,17 @@ func ContinuousIntegrationNamespaces(client corev1.CoreV1Interface, protectedBra
 	}
 
 	return nil
+}
+
+func hasOptedOut(annotations map[string]string, optOutAnnotations []string) bool {
+	for _, optOutAnnotation := range optOutAnnotations {
+		optOut, ok := annotations[optOutAnnotation]
+		if !ok {
+			continue
+		}
+		return optOut == "true"
+	}
+	return false
 }
 
 func isCI(name string) bool {

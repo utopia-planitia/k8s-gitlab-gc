@@ -23,16 +23,19 @@ func GitlabExecutors(client corev1.PodInterface, maxAge int64) error {
 
 	for _, pod := range pods.Items {
 
-		if !isTaggedBy(pod.ObjectMeta.Name, "project") {
+		name := pod.ObjectMeta.Name
+
+		if !isTaggedBy(name, "project") {
 			continue
 		}
 
-		if age(pod.ObjectMeta.CreationTimestamp) < maxAge {
+		age := age(pod.ObjectMeta.CreationTimestamp)
+		if age < maxAge {
 			continue
 		}
 
-		fmt.Printf("deleting pod %s\n", pod.ObjectMeta.Name)
-		client.Delete(pod.ObjectMeta.Name, &metav1.DeleteOptions{})
+		fmt.Printf("deleting pod: %s, age: %d, maxAge: %d, ageInHours: %d\n", name, age, maxAge, age/60/60)
+		client.Delete(name, &metav1.DeleteOptions{})
 	}
 
 	return nil
