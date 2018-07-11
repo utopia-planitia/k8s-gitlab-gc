@@ -11,8 +11,10 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-// RunnerPods removes no longer used gitlab runner job execution pods
-func RunnerPods(client corev1.PodInterface) error {
+const twoHours = 60 * 60 * 2
+
+// GitlabExecutors removes gitlab execution pods with an age above 2 hours
+func GitlabExecutors(client corev1.PodInterface) error {
 
 	pods, err := client.List(metav1.ListOptions{})
 	if err != nil {
@@ -34,7 +36,8 @@ func RunnerPods(client corev1.PodInterface) error {
 }
 
 func isOld(pod v1.Pod) bool {
-	return (time.Now().Unix() - pod.Status.StartTime.Unix()) > (60 * 60 * 2)
+	age := time.Now().Unix() - pod.Status.StartTime.Unix()
+	return age > twoHours
 }
 
 func belongsToProject(pod v1.Pod) bool {

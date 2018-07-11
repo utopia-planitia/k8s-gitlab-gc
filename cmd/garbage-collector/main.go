@@ -10,12 +10,6 @@ import (
 )
 
 func main() {
-
-	// TODO: remove gitlab runners if older then 1h
-	// TODO: remove ci namespaces if nothing got updated for 2 days (only clean up .*-ci-.* and keep master / stage / develop)
-	// TODO: remove ci namespaces if branch is gone
-	// TODO: remove gitlab environments if ingress is gone
-
 	var kubeconfig *string
 	var gitlabRunnerNamespace *string
 	kubeconfig = flag.String("kubeconfig", "", "(optional) absolute path to the kubeconfig file")
@@ -32,5 +26,5 @@ func main() {
 		panic(err.Error())
 	}
 
-	gc.RunnerPods(client.CoreV1().Pods(*gitlabRunnerNamespace))
+	gc.GitlabExecutors(client.CoreV1().Pods(*gitlabRunnerNamespace))
 }
