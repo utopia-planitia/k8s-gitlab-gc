@@ -8,7 +8,7 @@ import (
 	k8sClient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/utopia-planitia/kubernetes-gitlab-garbage-collector/lib"
+	"github.com/utopia-planitia/k8s-gitlab-gc/lib"
 )
 
 func main() {
