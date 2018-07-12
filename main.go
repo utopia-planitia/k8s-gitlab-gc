@@ -17,7 +17,7 @@ func main() {
 	var gitlabRunnerNamespace *string
 	gitlabRunnerNamespace = flag.String("gitlabRunnerNamespace", "gitlab-runner", "(optional) absolute path to the kubeconfig file")
 	var protectedBranches *string
-	protectedBranches = flag.String("protectedBranches", "develop,master,preview,review,stage", "ci namespaces to ignore")
+	protectedBranches = flag.String("protectedBranches", "develop,master,preview,review,stage,staging", "ci namespaces to ignore")
 	var maxGitlabExecutorAge *int64
 	maxGitlabExecutorAge = flag.Int64("maxGitlabExecutorAge", 60*60*2, "max age for gitlab executor pods")
 	var maxReviewNamespaceAge *int64
