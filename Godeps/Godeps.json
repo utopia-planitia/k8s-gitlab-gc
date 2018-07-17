@@ -1,10 +1,7 @@
 {
-	"ImportPath": "github.com/utopia-planitia/kubernetes-gitlab-garbage-collector",
+	"ImportPath": "github.com/utopia-planitia/k8s-gitlab-gc",
 	"GoVersion": "go1.10",
 	"GodepVersion": "v79",
-	"Packages": [
-		"./cmd/garbage-collector"
-	],
 	"Deps": [
 		{
 			"ImportPath": "github.com/ghodss/yaml",
@@ -50,6 +47,10 @@
 			"Rev": "e09c5db296004fbe3f74490e84dcd62c3c5ddb1b"
 		},
 		{
+			"ImportPath": "github.com/google/go-querystring/query",
+			"Rev": "53e6ce116135b80d037921a7fdd5138cf32d7a8a"
+		},
+		{
 			"ImportPath": "github.com/google/gofuzz",
 			"Rev": "24818f796faf91cd76ec7bddd72458fbced7a6c1"
 		},
@@ -91,6 +92,11 @@
 			"ImportPath": "github.com/modern-go/reflect2",
 			"Comment": "1.0.1",
 			"Rev": "4b7aa43c6742a2c18fdef89dd197aaae7dac7ccd"
+		},
+		{
+			"ImportPath": "github.com/plouc/go-gitlab-client/gitlab",
+			"Comment": "v2.0.0-beta.5",
+			"Rev": "658c0ef2a68fc413e92bbd6d33f7c3e59667dd97"
 		},
 		{
 			"ImportPath": "github.com/spf13/pflag",

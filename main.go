@@ -2,13 +2,15 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"strings"
 
-	k8sClient "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-
+	"github.com/plouc/go-gitlab-client/gitlab"
 	"github.com/utopia-planitia/k8s-gitlab-gc/lib"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 func main() {
@@ -25,25 +27,51 @@ func main() {
 	var maxBuildNamespaceAge *int64
 	maxBuildNamespaceAge = flag.Int64("maxBuildNamespaceAge", 60*60*6, "max age for e2e testing namespaces in seconds")
 	var optOutAnnotations *string
-	optOutAnnotations = flag.String("optOutAnnotations", "disable-automatic-garbage-collection", "comma seperated list of annotations to protect namespaces from deletion, annotations need to be set to the string true")
+	optOutAnnotations = flag.String("optOutAnnotations", "disable-automatic-garbage-collection", "comma seperated list of annotations to protect namespaces from deletion, annotations need to be set to the string 'true'")
+	var gitlabURL *string
+	gitlabURL = flag.String("gitlabURL", "", "url of gitlab")
+	var gitlabTokenFile *string
+	gitlabTokenFile = flag.String("gitlabTokenFile", "/gitlab-secret/token", "path to the gitlab api token")
 	flag.Parse()
 
-	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
+	k8s, err := provideKubernetesClient(*kubeconfig)
 	if err != nil {
-		panic(err.Error())
+		log.Fatalf("failed initilize kubernetes client: %s", err)
+	}
+	g, err := provideGitlabClient(*gitlabTokenFile, *gitlabURL)
+	if err != nil {
+		log.Fatalf("failed initilize gitlab client: %s", err)
 	}
 
-	client, err := k8sClient.NewForConfig(config)
+	err = gc.GitlabExecutors(k8s.CoreV1().Pods(*gitlabRunnerNamespace), *maxGitlabExecutorAge)
 	if err != nil {
-		panic(err.Error())
+		log.Fatalf("failed to clean up gitlab executors: %s", err)
 	}
 
-	err = gc.GitlabExecutors(client.CoreV1().Pods(*gitlabRunnerNamespace), *maxGitlabExecutorAge)
+	err = gc.ContinuousIntegrationNamespaces(k8s.CoreV1(), strings.Split(*protectedBranches, ","), strings.Split(*optOutAnnotations, ","), *maxBuildNamespaceAge, *maxReviewNamespaceAge)
 	if err != nil {
-		log.Printf("failed to clean up gitlab executors: %s", err)
+		log.Fatalf("failed to clean up ci namespaces: %s", err)
 	}
-	err = gc.ContinuousIntegrationNamespaces(client.CoreV1(), strings.Split(*protectedBranches, ","), strings.Split(*optOutAnnotations, ","), *maxBuildNamespaceAge, *maxReviewNamespaceAge)
+
+	err = gc.GitlabEnvironments(k8s.CoreV1().Nodes(), k8s.ExtensionsV1beta1().Ingresses(""), g)
 	if err != nil {
-		log.Printf("failed to clean up ci namespaces: %s", err)
+		log.Fatalf("failed to clean up gitlab project environments: %s", err)
 	}
+}
+
+func provideKubernetesClient(kubeconfig string) (*kubernetes.Clientset, error) {
+	k8sConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse kubernetes configuration: %s", err)
+	}
+	return kubernetes.NewForConfig(k8sConfig)
+}
+
+func provideGitlabClient(tokenPath, url string) (*gitlab.Gitlab, error) {
+	b, err := ioutil.ReadFile(tokenPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read gitlab api token: %s", err)
+	}
+	gitlabToken := strings.TrimSpace(string(b))
+	return gitlab.NewGitlab(url, "/api/v4/", gitlabToken), nil
 }
