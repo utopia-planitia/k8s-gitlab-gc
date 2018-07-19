@@ -14,24 +14,15 @@ import (
 )
 
 func main() {
-	var kubeconfig *string
-	kubeconfig = flag.String("kubeconfig", "", "(optional) absolute path to the kubeconfig file")
-	var gitlabRunnerNamespace *string
-	gitlabRunnerNamespace = flag.String("gitlabRunnerNamespace", "gitlab-runner", "namespace to remove gitlab executors from")
-	var protectedBranches *string
-	protectedBranches = flag.String("protectedBranches", "develop,master,preview,review,stage,staging", "comma seperated list of substrings to mark a namespace as protected from deletion")
-	var maxGitlabExecutorAge *int64
-	maxGitlabExecutorAge = flag.Int64("maxGitlabExecutorAge", 60*60*2, "max age for gitlab executor pods in seconds")
-	var maxReviewNamespaceAge *int64
-	maxReviewNamespaceAge = flag.Int64("maxReviewNamespaceAge", 60*60*24*2, "max age for review namespaces in seconds")
-	var maxBuildNamespaceAge *int64
-	maxBuildNamespaceAge = flag.Int64("maxBuildNamespaceAge", 60*60*6, "max age for e2e testing namespaces in seconds")
-	var optOutAnnotations *string
-	optOutAnnotations = flag.String("optOutAnnotations", "disable-automatic-garbage-collection", "comma seperated list of annotations to protect namespaces from deletion, annotations need to be set to the string 'true'")
-	var gitlabURL *string
-	gitlabURL = flag.String("gitlabURL", "", "url of gitlab")
-	var gitlabTokenFile *string
-	gitlabTokenFile = flag.String("gitlabTokenFile", "/gitlab-secret/token", "path to the gitlab api token")
+	var kubeconfig = flag.String("kubeconfig", "", "(optional) absolute path to the kubeconfig file")
+	var gitlabRunnerNamespace = flag.String("gitlabRunnerNamespace", "gitlab-runner", "namespace to remove gitlab executors from")
+	var protectedBranches = flag.String("protectedBranches", "develop,master,preview,review,stage,staging", "comma seperated list of substrings to mark a namespace as protected from deletion")
+	var maxGitlabExecutorAge = flag.Int64("maxGitlabExecutorAge", 60*60*2, "max age for gitlab executor pods in seconds")
+	var maxReviewNamespaceAge = flag.Int64("maxReviewNamespaceAge", 60*60*24*2, "max age for review namespaces in seconds")
+	var maxBuildNamespaceAge = flag.Int64("maxBuildNamespaceAge", 60*60*6, "max age for e2e testing namespaces in seconds")
+	var optOutAnnotations = flag.String("optOutAnnotations", "disable-automatic-garbage-collection", "comma seperated list of annotations to protect namespaces from deletion, annotations need to be set to the string 'true'")
+	var gitlabURL = flag.String("gitlabURL", "", "url of gitlab")
+	var gitlabTokenFile = flag.String("gitlabTokenFile", "/gitlab-secret/token", "path to the gitlab api token")
 	flag.Parse()
 
 	k8s, err := provideKubernetesClient(*kubeconfig)
