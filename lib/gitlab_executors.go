@@ -35,7 +35,10 @@ func GitlabExecutors(client corev1.PodInterface, maxAge int64) error {
 		}
 
 		fmt.Printf("deleting pod: %s, age: %d, maxAge: %d, ageInHours: %d\n", name, age, maxAge, age/60/60)
-		client.Delete(name, &metav1.DeleteOptions{})
+		err = client.Delete(name, &metav1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

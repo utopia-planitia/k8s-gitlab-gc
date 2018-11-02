@@ -55,7 +55,10 @@ func ContinuousIntegrationNamespaces(client corev1.CoreV1Interface, protectedBra
 		}
 
 		fmt.Printf("deleting namespace: %s, age: %d, maxAge: %d, ageInHours: %d, ageInDays: %d\n", name, age, maxAge, age/60/60, age/60/60/24)
-		client.Namespaces().Delete(name, &metav1.DeleteOptions{})
+		err = client.Namespaces().Delete(name, &metav1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
