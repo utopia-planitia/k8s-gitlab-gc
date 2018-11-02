@@ -25,13 +25,19 @@ func main() {
 	var gitlabTokenFile = flag.String("gitlabTokenFile", "/gitlab-secret/token", "path to the gitlab api token")
 	flag.Parse()
 
+	log.Printf("kubeconfig: %v\n", *kubeconfig)
+	log.Printf("gitlabRunnerNamespace: %v\n", *gitlabRunnerNamespace)
+	log.Printf("protectedBranches: %v\n", *protectedBranches)
+	log.Printf("maxGitlabExecutorAge: %v\n", *maxGitlabExecutorAge)
+	log.Printf("maxReviewNamespaceAge: %v\n", *maxReviewNamespaceAge)
+	log.Printf("maxBuildNamespaceAge: %v\n", *maxBuildNamespaceAge)
+	log.Printf("optOutAnnotations: %v\n", *optOutAnnotations)
+	log.Printf("gitlabURL: %v\n", *gitlabURL)
+	log.Printf("gitlabTokenFile: %v\n", *gitlabTokenFile)
+
 	k8s, err := provideKubernetesClient(*kubeconfig)
 	if err != nil {
 		log.Fatalf("failed initilize kubernetes client: %s", err)
-	}
-	g, err := provideGitlabClient(*gitlabTokenFile, *gitlabURL)
-	if err != nil {
-		log.Fatalf("failed initilize gitlab client: %s", err)
 	}
 
 	err = gc.GitlabExecutors(k8s.CoreV1().Pods(*gitlabRunnerNamespace), *maxGitlabExecutorAge)
@@ -44,6 +50,13 @@ func main() {
 		log.Fatalf("failed to clean up ci namespaces: %s", err)
 	}
 
+	if *gitlabURL == "" {
+		return
+	}
+	g, err := provideGitlabClient(*gitlabTokenFile, *gitlabURL)
+	if err != nil {
+		log.Fatalf("failed initilize gitlab client: %s", err)
+	}
 	err = gc.GitlabEnvironments(k8s.CoreV1().Nodes(), k8s.ExtensionsV1beta1().Ingresses(""), g)
 	if err != nil {
 		log.Fatalf("failed to clean up gitlab project environments: %s", err)
