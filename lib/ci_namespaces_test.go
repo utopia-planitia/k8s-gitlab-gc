@@ -1,6 +1,14 @@
 package gc
 
-import "testing"
+import (
+	"testing"
+	"time"
+
+	v1 "k8s.io/api/core/v1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	types "k8s.io/apimachinery/pkg/types"
+	watch "k8s.io/apimachinery/pkg/watch"
+)
 
 var isHashbasedTests = []struct {
 	in  string
@@ -25,6 +33,158 @@ func TestIsHashbased(t *testing.T) {
 			}
 			if s != tt.out {
 				t.Errorf("isHashbased (%s) => %t want %t", tt.in, s, tt.out)
+			}
+		})
+	}
+}
+
+type namespaces_mock struct {
+	list      *v1.NamespaceList
+	deletions int
+}
+
+func (c *namespaces_mock) Create(*v1.Namespace) (*v1.Namespace, error) {
+	panic("mocked Create not implemented")
+}
+func (c *namespaces_mock) Update(*v1.Namespace) (*v1.Namespace, error) {
+	panic("mocked Update not implemented")
+}
+func (c *namespaces_mock) UpdateStatus(*v1.Namespace) (*v1.Namespace, error) {
+	panic("mocked UpdateStatus not implemented")
+}
+func (c *namespaces_mock) Delete(name string, options *meta_v1.DeleteOptions) error {
+	c.deletions++
+	return nil
+}
+func (c *namespaces_mock) DeleteCollection(options *meta_v1.DeleteOptions, listOptions meta_v1.ListOptions) error {
+	panic("mocked DeleteCollection not implemented")
+}
+func (c *namespaces_mock) Get(name string, options meta_v1.GetOptions) (*v1.Namespace, error) {
+	panic("mocked Get not implemented")
+}
+func (c *namespaces_mock) List(opts meta_v1.ListOptions) (*v1.NamespaceList, error) {
+	return c.list, nil
+}
+func (c *namespaces_mock) Watch(opts meta_v1.ListOptions) (watch.Interface, error) {
+	panic("mocked Watch not implemented")
+}
+func (c *namespaces_mock) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.Namespace, err error) {
+	panic("mocked Patch not implemented")
+}
+func (c *namespaces_mock) Finalize(item *v1.Namespace) (*v1.Namespace, error) {
+	panic("mocked Finalize not implemented")
+}
+
+func TestContinuousIntegrationNamespaces(t *testing.T) {
+
+	//	func (c *namespaces_mock)
+
+	type args struct {
+		namespaces        *namespaces_mock
+		expectedDeletes   int
+		protectedBranches []string
+		optOutAnnotations []string
+		maxTestingAge     int64
+		maxReviewAge      int64
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "keep namespace",
+			args: args{
+				namespaces: &namespaces_mock{
+					list: &v1.NamespaceList{Items: []v1.Namespace{
+						v1.Namespace{ObjectMeta: meta_v1.ObjectMeta{Name: "testing"}},
+					}},
+				},
+				expectedDeletes:   0,
+				protectedBranches: []string{},
+				optOutAnnotations: []string{},
+				maxTestingAge:     int64(60 * 60 * 6),
+				maxReviewAge:      int64(60 * 60 * 24 * 2),
+			},
+			wantErr: false,
+		},
+		{
+			name: "keep ci namespace",
+			args: args{
+				namespaces: &namespaces_mock{
+					list: &v1.NamespaceList{Items: []v1.Namespace{
+						v1.Namespace{ObjectMeta: meta_v1.ObjectMeta{
+							Name: "testing-ci",
+							CreationTimestamp: meta_v1.Time{
+								Time: time.Now().Add(-1 * time.Hour),
+							},
+						}},
+					}},
+				},
+				expectedDeletes:   0,
+				protectedBranches: []string{},
+				optOutAnnotations: []string{},
+				maxTestingAge:     int64(60 * 60 * 6),
+				maxReviewAge:      int64(60 * 60 * 24 * 2),
+			},
+			wantErr: false,
+		},
+		{
+			name: "delete ci namespace",
+			args: args{
+				namespaces: &namespaces_mock{
+					list: &v1.NamespaceList{Items: []v1.Namespace{
+						v1.Namespace{ObjectMeta: meta_v1.ObjectMeta{
+							Name: "ci-testing-d41d8cd98f00b204e9800998ecf8427e",
+							CreationTimestamp: meta_v1.Time{
+								Time: time.Now().Add(-10 * time.Hour),
+							},
+						}},
+					}},
+				},
+				expectedDeletes:   1,
+				protectedBranches: []string{},
+				optOutAnnotations: []string{},
+				maxTestingAge:     int64(60 * 60 * 6),
+				maxReviewAge:      int64(60 * 60 * 24 * 2),
+			},
+			wantErr: false,
+		},
+		{
+			name: "skip terminating namespace",
+			args: args{
+				namespaces: &namespaces_mock{
+					list: &v1.NamespaceList{Items: []v1.Namespace{
+						v1.Namespace{
+							ObjectMeta: meta_v1.ObjectMeta{
+								Name: "ci-terminating-d41d8cd98f00b204e9800998ecf8427e",
+								CreationTimestamp: meta_v1.Time{
+									Time: time.Now().Add(-10 * time.Hour),
+								},
+							},
+							Status: v1.NamespaceStatus{
+								Phase: v1.NamespaceTerminating,
+							},
+						},
+					}},
+				},
+				expectedDeletes:   0,
+				protectedBranches: []string{},
+				optOutAnnotations: []string{},
+				maxTestingAge:     int64(60 * 60 * 6),
+				maxReviewAge:      int64(60 * 60 * 24 * 2),
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := ContinuousIntegrationNamespaces(tt.args.namespaces, tt.args.protectedBranches, tt.args.optOutAnnotations, tt.args.maxTestingAge, tt.args.maxReviewAge); (err != nil) != tt.wantErr {
+				t.Errorf("ContinuousIntegrationNamespaces() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			deletions := tt.args.namespaces.deletions
+			if tt.args.expectedDeletes != deletions {
+				t.Errorf("deletions = %v, want %v", deletions, tt.args.expectedDeletes)
 			}
 		})
 	}

@@ -4,17 +4,18 @@ import (
 	"fmt"
 	"regexp"
 
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 // ContinuousIntegrationNamespaces removes no longer used namespaces
-func ContinuousIntegrationNamespaces(client corev1.CoreV1Interface, protectedBranches, optOutAnnotations []string, maxTestingAge, maxReviewAge int64) error {
+func ContinuousIntegrationNamespaces(namespaces corev1.NamespaceInterface, protectedBranches, optOutAnnotations []string, maxTestingAge, maxReviewAge int64) error {
 
 	// TODO: remove ci namespaces if branch is gone
 	// TODO: remove ci namespaces if nothing got updated for 2 days (only clean up .*-ci-.* and keep master / stage / develop)
 
-	nss, err := client.Namespaces().List(metav1.ListOptions{})
+	nss, err := namespaces.List(metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -24,6 +25,10 @@ func ContinuousIntegrationNamespaces(client corev1.CoreV1Interface, protectedBra
 	}
 
 	for _, ns := range nss.Items {
+		if isTerminating(ns) {
+			continue
+		}
+
 		name := ns.ObjectMeta.Name
 
 		if isProtected(name, protectedBranches) {
@@ -55,7 +60,7 @@ func ContinuousIntegrationNamespaces(client corev1.CoreV1Interface, protectedBra
 		}
 
 		fmt.Printf("deleting namespace: %s, age: %d, maxAge: %d, ageInHours: %d, ageInDays: %d\n", name, age, maxAge, age/60/60, age/60/60/24)
-		err = client.Namespaces().Delete(name, &metav1.DeleteOptions{})
+		err = namespaces.Delete(name, &metav1.DeleteOptions{})
 		if err != nil {
 			return err
 		}
@@ -90,4 +95,8 @@ func isProtected(name string, protectedBranches []string) bool {
 		}
 	}
 	return false
+}
+
+func isTerminating(ns v1.Namespace) bool {
+	return ns.Status.Phase == v1.NamespaceTerminating
 }
