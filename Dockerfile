@@ -1,12 +1,15 @@
-FROM golang:1.10.3-alpine3.7 AS compile
-ENV GOOS=linux
-COPY vendor /go/src/github.com/utopia-planitia/k8s-gitlab-gc/vendor
-RUN go build all
-COPY lib /go/src/github.com/utopia-planitia/k8s-gitlab-gc/lib
-COPY main.go /go/src/github.com/utopia-planitia/k8s-gitlab-gc/main.go
+# compile
+FROM golang:1.14.4-alpine3.12 AS compile
 WORKDIR /go/src/github.com/utopia-planitia/k8s-gitlab-gc/
+
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+
+COPY . .
 RUN go install .
 
-FROM alpine:3.8
+# package
+FROM alpine:3.12
 COPY --from=compile /go/bin/k8s-gitlab-gc /k8s-gitlab-gc
 ENTRYPOINT ["/k8s-gitlab-gc"]
