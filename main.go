@@ -23,8 +23,6 @@ func main() {
 	var maxReviewNamespaceAge = flag.Int64("maxReviewNamespaceAge", 60*60*24*2, "max age for review namespaces in seconds")
 	var maxBuildNamespaceAge = flag.Int64("maxBuildNamespaceAge", 60*60*6, "max age for e2e testing namespaces in seconds")
 	var optOutAnnotations = flag.String("optOutAnnotations", "disable-automatic-garbage-collection", "comma seperated list of annotations to protect namespaces from deletion, annotations need to be set to the string 'true'")
-	var gitlabURL = flag.String("gitlabURL", "", "url of gitlab")
-	var gitlabTokenFile = flag.String("gitlabTokenFile", "/gitlab-secret/token", "path to the gitlab api token")
 	flag.Parse()
 
 	log.Printf("kubeconfig: %v\n", *kubeconfig)
@@ -34,8 +32,6 @@ func main() {
 	log.Printf("maxReviewNamespaceAge: %v\n", *maxReviewNamespaceAge)
 	log.Printf("maxBuildNamespaceAge: %v\n", *maxBuildNamespaceAge)
 	log.Printf("optOutAnnotations: %v\n", *optOutAnnotations)
-	log.Printf("gitlabURL: %v\n", *gitlabURL)
-	log.Printf("gitlabTokenFile: %v\n", *gitlabTokenFile)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
@@ -53,18 +49,6 @@ func main() {
 	err = gc.ContinuousIntegrationNamespaces(ctx, k8s.CoreV1().Namespaces(), strings.Split(*protectedBranches, ","), strings.Split(*optOutAnnotations, ","), *maxBuildNamespaceAge, *maxReviewNamespaceAge)
 	if err != nil {
 		log.Fatalf("failed to clean up ci namespaces: %s", err)
-	}
-
-	if *gitlabURL == "" {
-		return
-	}
-	g, err := provideGitlabClient(*gitlabTokenFile, *gitlabURL)
-	if err != nil {
-		log.Fatalf("failed initilize gitlab client: %s", err)
-	}
-	err = gc.GitlabEnvironments(ctx, k8s.CoreV1().Nodes(), k8s.ExtensionsV1beta1().Ingresses(""), g)
-	if err != nil {
-		log.Fatalf("failed to clean up gitlab project environments: %s", err)
 	}
 }
 
