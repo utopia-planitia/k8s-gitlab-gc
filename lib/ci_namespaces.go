@@ -1,6 +1,7 @@
 package gc
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 
@@ -10,12 +11,12 @@ import (
 )
 
 // ContinuousIntegrationNamespaces removes no longer used namespaces
-func ContinuousIntegrationNamespaces(namespaces corev1.NamespaceInterface, protectedBranches, optOutAnnotations []string, maxTestingAge, maxReviewAge int64) error {
+func ContinuousIntegrationNamespaces(ctx context.Context, namespaces corev1.NamespaceInterface, protectedBranches, optOutAnnotations []string, maxTestingAge, maxReviewAge int64) error {
 
 	// TODO: remove ci namespaces if branch is gone
 	// TODO: remove ci namespaces if nothing got updated for 2 days (only clean up .*-ci-.* and keep master / stage / develop)
 
-	nss, err := namespaces.List(metav1.ListOptions{})
+	nss, err := namespaces.List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -60,7 +61,7 @@ func ContinuousIntegrationNamespaces(namespaces corev1.NamespaceInterface, prote
 		}
 
 		fmt.Printf("deleting namespace: %s, age: %d, maxAge: %d, ageInHours: %d, ageInDays: %d\n", name, age, maxAge, age/60/60, age/60/60/24)
-		err = namespaces.Delete(name, &metav1.DeleteOptions{})
+		err = namespaces.Delete(ctx, name, metav1.DeleteOptions{})
 		if err != nil {
 			return err
 		}

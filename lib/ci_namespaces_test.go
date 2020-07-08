@@ -1,6 +1,7 @@
 package gc
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -8,6 +9,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 var isHashbasedTests = []struct {
@@ -43,36 +45,31 @@ type namespaces_mock struct {
 	deletions int
 }
 
-func (c *namespaces_mock) Create(*v1.Namespace) (*v1.Namespace, error) {
+
+func (c *namespaces_mock) Create(ctx context.Context, namespace *v1.Namespace, opts metav1.CreateOptions) (*v1.Namespace, error) {
 	panic("mocked Create not implemented")
 }
-func (c *namespaces_mock) Update(*v1.Namespace) (*v1.Namespace, error) {
+func (c *namespaces_mock) Update(ctx context.Context, namespace *v1.Namespace, opts metav1.UpdateOptions) (*v1.Namespace, error) {
 	panic("mocked Update not implemented")
 }
-func (c *namespaces_mock) UpdateStatus(*v1.Namespace) (*v1.Namespace, error) {
+func (c *namespaces_mock) UpdateStatus(ctx context.Context, namespace *v1.Namespace, opts metav1.UpdateOptions) (*v1.Namespace, error) {
 	panic("mocked UpdateStatus not implemented")
 }
-func (c *namespaces_mock) Delete(name string, options *meta_v1.DeleteOptions) error {
+func (c *namespaces_mock) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	c.deletions++
 	return nil
 }
-func (c *namespaces_mock) DeleteCollection(options *meta_v1.DeleteOptions, listOptions meta_v1.ListOptions) error {
-	panic("mocked DeleteCollection not implemented")
-}
-func (c *namespaces_mock) Get(name string, options meta_v1.GetOptions) (*v1.Namespace, error) {
+func (c *namespaces_mock) Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.Namespace, error) {
 	panic("mocked Get not implemented")
 }
-func (c *namespaces_mock) List(opts meta_v1.ListOptions) (*v1.NamespaceList, error) {
+func (c *namespaces_mock) List(ctx context.Context, opts metav1.ListOptions) (*v1.NamespaceList, error) {
 	return c.list, nil
 }
-func (c *namespaces_mock) Watch(opts meta_v1.ListOptions) (watch.Interface, error) {
+func (c *namespaces_mock) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	panic("mocked Watch not implemented")
 }
-func (c *namespaces_mock) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.Namespace, err error) {
+func (c *namespaces_mock) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Namespace, err error) (corev1.NamespaceExpansion) {
 	panic("mocked Patch not implemented")
-}
-func (c *namespaces_mock) Finalize(item *v1.Namespace) (*v1.Namespace, error) {
-	panic("mocked Finalize not implemented")
 }
 
 func TestContinuousIntegrationNamespaces(t *testing.T) {
@@ -179,7 +176,10 @@ func TestContinuousIntegrationNamespaces(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := ContinuousIntegrationNamespaces(tt.args.namespaces, tt.args.protectedBranches, tt.args.optOutAnnotations, tt.args.maxTestingAge, tt.args.maxReviewAge); (err != nil) != tt.wantErr {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			if err := ContinuousIntegrationNamespaces(ctx, tt.args.namespaces, tt.args.protectedBranches, tt.args.optOutAnnotations, tt.args.maxTestingAge, tt.args.maxReviewAge); (err != nil) != tt.wantErr {
 				t.Errorf("ContinuousIntegrationNamespaces() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			deletions := tt.args.namespaces.deletions

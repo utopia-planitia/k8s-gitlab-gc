@@ -1,6 +1,7 @@
 package gc
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -13,13 +14,13 @@ import (
 )
 
 // GitlabEnvironments removes gitlab environments without a ingress definition in kubernetes
-func GitlabEnvironments(n core_v1.NodeInterface, i v1beta1.IngressInterface, g *gitlab.Gitlab) error {
+func GitlabEnvironments(ctx context.Context, n core_v1.NodeInterface, i v1beta1.IngressInterface, g *gitlab.Gitlab) error {
 
-	nodeIPs, err := fetchNodeIPs(n)
+	nodeIPs, err := fetchNodeIPs(ctx, n)
 	if err != nil {
 		return fmt.Errorf("failed to fetch kubernetes node IPs: %s", err)
 	}
-	hostNames, err := fetchIngressHostnames(i)
+	hostNames, err := fetchIngressHostnames(ctx, i)
 	if err != nil {
 		return fmt.Errorf("failed to fetch ingress host names: %s", err)
 	}
@@ -54,8 +55,8 @@ func fetchRunnerIds(nodeIps map[string]bool, g *gitlab.Gitlab) ([]int, error) {
 	return IDs, nil
 }
 
-func fetchNodeIPs(n core_v1.NodeInterface) (map[string]bool, error) {
-	nodes, err := n.List(meta_v1.ListOptions{})
+func fetchNodeIPs(ctx context.Context, n core_v1.NodeInterface) (map[string]bool, error) {
+	nodes, err := n.List(ctx, meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -72,8 +73,8 @@ func fetchNodeIPs(n core_v1.NodeInterface) (map[string]bool, error) {
 	return ips, nil
 }
 
-func fetchIngressHostnames(i v1beta1.IngressInterface) (map[string]bool, error) {
-	ingresses, err := i.List(meta_v1.ListOptions{})
+func fetchIngressHostnames(ctx context.Context, i v1beta1.IngressInterface) (map[string]bool, error) {
+	ingresses, err := i.List(ctx, meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}

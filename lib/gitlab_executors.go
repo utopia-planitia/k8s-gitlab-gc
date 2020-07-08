@@ -1,6 +1,7 @@
 package gc
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -10,9 +11,9 @@ import (
 )
 
 // GitlabExecutors removes gitlab execution pods with an age above 2 hours
-func GitlabExecutors(client corev1.PodInterface, maxAge int64) error {
+func GitlabExecutors(ctx context.Context, client corev1.PodInterface, maxAge int64) error {
 
-	pods, err := client.List(metav1.ListOptions{})
+	pods, err := client.List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -35,7 +36,7 @@ func GitlabExecutors(client corev1.PodInterface, maxAge int64) error {
 		}
 
 		fmt.Printf("deleting pod: %s, age: %d, maxAge: %d, ageInHours: %d\n", name, age, maxAge, age/60/60)
-		err = client.Delete(name, &metav1.DeleteOptions{})
+		err = client.Delete(ctx, name, metav1.DeleteOptions{})
 		if err != nil {
 			return err
 		}
