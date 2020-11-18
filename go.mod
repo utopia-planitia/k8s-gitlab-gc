@@ -1,6 +1,6 @@
 module github.com/utopia-planitia/k8s-gitlab-gc
 
-go 1.14
+go 1.15
 
 require (
 	github.com/google/go-querystring v1.0.0 // indirect
