@@ -10,6 +10,6 @@ COPY . .
 RUN go install .
 
 # package
-FROM alpine:3.12.1@sha256:c0e9560cda118f9ec63ddefb4a173a2b2a0347082d7dff7dc14272e7841a5b5a
+FROM alpine:3.14.1@sha256:eb3e4e175ba6d212ba1d6e04fc0782916c08e1c9d7b45892e9796141b1d379ae
 COPY --from=compile /go/bin/k8s-gitlab-gc /k8s-gitlab-gc
 ENTRYPOINT ["/k8s-gitlab-gc"]
