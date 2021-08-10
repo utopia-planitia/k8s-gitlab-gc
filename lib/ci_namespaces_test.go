@@ -74,9 +74,6 @@ func (c *namespaces_mock) Finalize(ctx context.Context, item *v1.Namespace, opts
 }
 
 func TestContinuousIntegrationNamespaces(t *testing.T) {
-
-	//	func (c *namespaces_mock)
-
 	type args struct {
 		namespaces        *namespaces_mock
 		expectedDeletes   int
@@ -95,7 +92,7 @@ func TestContinuousIntegrationNamespaces(t *testing.T) {
 			args: args{
 				namespaces: &namespaces_mock{
 					list: &v1.NamespaceList{Items: []v1.Namespace{
-						v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "testing"}},
+						{ObjectMeta: metav1.ObjectMeta{Name: "testing"}},
 					}},
 				},
 				expectedDeletes:   0,
@@ -111,7 +108,7 @@ func TestContinuousIntegrationNamespaces(t *testing.T) {
 			args: args{
 				namespaces: &namespaces_mock{
 					list: &v1.NamespaceList{Items: []v1.Namespace{
-						v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+						{ObjectMeta: metav1.ObjectMeta{
 							Name: "testing-ci",
 							CreationTimestamp: metav1.Time{
 								Time: time.Now().Add(-1 * time.Hour),
@@ -132,7 +129,7 @@ func TestContinuousIntegrationNamespaces(t *testing.T) {
 			args: args{
 				namespaces: &namespaces_mock{
 					list: &v1.NamespaceList{Items: []v1.Namespace{
-						v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+						{ObjectMeta: metav1.ObjectMeta{
 							Name: "ci-testing-d41d8cd98f00b204e9800998ecf8427e",
 							CreationTimestamp: metav1.Time{
 								Time: time.Now().Add(-10 * time.Hour),
@@ -153,7 +150,7 @@ func TestContinuousIntegrationNamespaces(t *testing.T) {
 			args: args{
 				namespaces: &namespaces_mock{
 					list: &v1.NamespaceList{Items: []v1.Namespace{
-						v1.Namespace{
+						{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "ci-terminating-d41d8cd98f00b204e9800998ecf8427e",
 								CreationTimestamp: metav1.Time{

@@ -3,16 +3,14 @@ package gc
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-// GitlabExecutors removes gitlab execution pods with an age above 2 hours
+// GitlabExecutors removes gitlab execution pods
 func GitlabExecutors(ctx context.Context, client corev1.PodInterface, maxAge int64) error {
-
 	pods, err := client.List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return err
@@ -23,10 +21,7 @@ func GitlabExecutors(ctx context.Context, client corev1.PodInterface, maxAge int
 	}
 
 	for _, pod := range pods.Items {
-
-		name := pod.ObjectMeta.Name
-
-		if !isTaggedBy(name, "project") {
+		if !isGitlabJobPod(pod.ObjectMeta.Labels) {
 			continue
 		}
 
@@ -35,8 +30,8 @@ func GitlabExecutors(ctx context.Context, client corev1.PodInterface, maxAge int
 			continue
 		}
 
-		fmt.Printf("deleting pod: %s, age: %d, maxAge: %d, ageInHours: %d\n", name, age, maxAge, age/60/60)
-		err = client.Delete(ctx, name, metav1.DeleteOptions{})
+		fmt.Printf("deleting pod: %s, age: %d, maxAge: %d, ageInHours: %d\n", pod.ObjectMeta.Name, age, maxAge, age/60/60)
+		err = client.Delete(ctx, pod.ObjectMeta.Name, metav1.DeleteOptions{})
 		if err != nil {
 			return err
 		}
@@ -45,8 +40,17 @@ func GitlabExecutors(ctx context.Context, client corev1.PodInterface, maxAge int
 	return nil
 }
 
-func isTaggedBy(s, t string) bool {
-	return strings.HasPrefix(s, t+"-") || strings.Contains(s, "-"+t+"-") || strings.HasSuffix(s, "-"+t)
+func isGitlabJobPod(labels map[string]string) bool {
+	v, ok := labels["app"]
+	if !ok {
+		return false
+	}
+
+	if v != "gitlab-ci-job" {
+		return false
+	}
+
+	return true
 }
 
 func age(t metav1.Time) int64 {
