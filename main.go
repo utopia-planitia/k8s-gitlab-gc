@@ -4,12 +4,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"strings"
 	"time"
 
-	"github.com/plouc/go-gitlab-client/gitlab"
 	gc "github.com/utopia-planitia/k8s-gitlab-gc/lib"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -58,13 +56,4 @@ func provideKubernetesClient(kubeconfig string) (*kubernetes.Clientset, error) {
 		return nil, fmt.Errorf("failed to parse kubernetes configuration: %s", err)
 	}
 	return kubernetes.NewForConfig(k8sConfig)
-}
-
-func provideGitlabClient(tokenPath, url string) (*gitlab.Gitlab, error) {
-	b, err := ioutil.ReadFile(tokenPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read gitlab api token: %s", err)
-	}
-	gitlabToken := strings.TrimSpace(string(b))
-	return gitlab.NewGitlab(url, "/api/v4/", gitlabToken), nil
 }
