@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
+	corev1 "k8s.io/client-go/applyconfigurations/core/v1"
 )
 
 var isHashbasedTests = []struct {
@@ -68,6 +69,12 @@ func (c *namespaces_mock) Watch(ctx context.Context, opts metav1.ListOptions) (w
 }
 func (c *namespaces_mock) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Namespace, err error) {
 	panic("mocked Patch not implemented")
+}
+func (c *namespaces_mock) Apply(ctx context.Context, namespace *corev1.NamespaceApplyConfiguration, opts metav1.ApplyOptions) (result *v1.Namespace, err error) {
+	panic("mocked Apply not implemented")
+}
+func (c *namespaces_mock) ApplyStatus(ctx context.Context, namespace *corev1.NamespaceApplyConfiguration, opts metav1.ApplyOptions) (result *v1.Namespace, err error) {
+	panic("mocked ApplyStatus not implemented")
 }
 func (c *namespaces_mock) Finalize(ctx context.Context, item *v1.Namespace, opts metav1.UpdateOptions) (*v1.Namespace, error) {
 	panic("mocked Finalize not implemented")
