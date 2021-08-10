@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,10 +13,6 @@ import (
 
 // ContinuousIntegrationNamespaces removes no longer used namespaces
 func ContinuousIntegrationNamespaces(ctx context.Context, namespaces corev1.NamespaceInterface, protectedBranches, optOutAnnotations []string, maxTestingAge, maxReviewAge int64) error {
-
-	// TODO: remove ci namespaces if branch is gone
-	// TODO: remove ci namespaces if nothing got updated for 2 days (only clean up .*-ci-.* and keep master / stage / develop)
-
 	nss, err := namespaces.List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return err
@@ -54,7 +51,6 @@ func ContinuousIntegrationNamespaces(ctx context.Context, namespaces corev1.Name
 			maxAge = maxTestingAge
 		}
 
-		// TODO check for last modified of: secret, configmap, deployment, statefulset, cronjob, service, ingress, pvc
 		age := age(ns.ObjectMeta.CreationTimestamp)
 		if age < maxAge {
 			continue
@@ -96,6 +92,10 @@ func isProtected(name string, protectedBranches []string) bool {
 		}
 	}
 	return false
+}
+
+func isTaggedBy(s, t string) bool {
+	return strings.HasPrefix(s, t+"-") || strings.Contains(s, "-"+t+"-") || strings.HasSuffix(s, "-"+t)
 }
 
 func isTerminating(ns v1.Namespace) bool {
