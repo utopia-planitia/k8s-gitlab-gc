@@ -1,0 +1,15 @@
+name: test
+on:
+  - push
+  - workflow_dispatch
+jobs:
+  golangci:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # renovate: tag=v2
+      - uses: actions/setup-go@37335c7bb261b353407cff977110895fa0b4f7d8 # renovate: tag=v2
+        with:
+          go-version: '^1.16.0'
+      - run: go version
+      - run: go test -v ./...
