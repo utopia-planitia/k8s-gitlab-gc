@@ -6,10 +6,9 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 var isHashbasedTests = []struct {
@@ -45,7 +44,6 @@ type namespaces_mock struct {
 	deletions int
 }
 
-
 func (c *namespaces_mock) Create(ctx context.Context, namespace *v1.Namespace, opts metav1.CreateOptions) (*v1.Namespace, error) {
 	panic("mocked Create not implemented")
 }
@@ -68,8 +66,11 @@ func (c *namespaces_mock) List(ctx context.Context, opts metav1.ListOptions) (*v
 func (c *namespaces_mock) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	panic("mocked Watch not implemented")
 }
-func (c *namespaces_mock) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Namespace, err error) (corev1.NamespaceExpansion) {
+func (c *namespaces_mock) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Namespace, err error) {
 	panic("mocked Patch not implemented")
+}
+func (c *namespaces_mock) Finalize(ctx context.Context, item *v1.Namespace, opts metav1.UpdateOptions) (*v1.Namespace, error) {
+	panic("mocked Finalize not implemented")
 }
 
 func TestContinuousIntegrationNamespaces(t *testing.T) {
@@ -94,7 +95,7 @@ func TestContinuousIntegrationNamespaces(t *testing.T) {
 			args: args{
 				namespaces: &namespaces_mock{
 					list: &v1.NamespaceList{Items: []v1.Namespace{
-						v1.Namespace{ObjectMeta: meta_v1.ObjectMeta{Name: "testing"}},
+						v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "testing"}},
 					}},
 				},
 				expectedDeletes:   0,
@@ -110,9 +111,9 @@ func TestContinuousIntegrationNamespaces(t *testing.T) {
 			args: args{
 				namespaces: &namespaces_mock{
 					list: &v1.NamespaceList{Items: []v1.Namespace{
-						v1.Namespace{ObjectMeta: meta_v1.ObjectMeta{
+						v1.Namespace{ObjectMeta: metav1.ObjectMeta{
 							Name: "testing-ci",
-							CreationTimestamp: meta_v1.Time{
+							CreationTimestamp: metav1.Time{
 								Time: time.Now().Add(-1 * time.Hour),
 							},
 						}},
@@ -131,9 +132,9 @@ func TestContinuousIntegrationNamespaces(t *testing.T) {
 			args: args{
 				namespaces: &namespaces_mock{
 					list: &v1.NamespaceList{Items: []v1.Namespace{
-						v1.Namespace{ObjectMeta: meta_v1.ObjectMeta{
+						v1.Namespace{ObjectMeta: metav1.ObjectMeta{
 							Name: "ci-testing-d41d8cd98f00b204e9800998ecf8427e",
-							CreationTimestamp: meta_v1.Time{
+							CreationTimestamp: metav1.Time{
 								Time: time.Now().Add(-10 * time.Hour),
 							},
 						}},
@@ -153,9 +154,9 @@ func TestContinuousIntegrationNamespaces(t *testing.T) {
 				namespaces: &namespaces_mock{
 					list: &v1.NamespaceList{Items: []v1.Namespace{
 						v1.Namespace{
-							ObjectMeta: meta_v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "ci-terminating-d41d8cd98f00b204e9800998ecf8427e",
-								CreationTimestamp: meta_v1.Time{
+								CreationTimestamp: metav1.Time{
 									Time: time.Now().Add(-10 * time.Hour),
 								},
 							},
