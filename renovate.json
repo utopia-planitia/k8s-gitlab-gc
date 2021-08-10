@@ -4,8 +4,7 @@
   ],
   "pinDigests": true,
   "postUpdateOptions": [
-    "gomodTidy",
-    "gomodUpdateImportPaths"
+    "gomodTidy"
   ],
   "prHourlyLimit": 0,
   "labels": [
