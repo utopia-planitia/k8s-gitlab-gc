@@ -31,6 +31,8 @@ jobs:
         id: meta
         uses: docker/metadata-action@8b842e721d38d18bea23b57f4c040e53331f4ca2 # renovate: tag=v3
         with:
+          flavor: |
+            latest=true
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
       - name: Build and push Docker image
