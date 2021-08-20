@@ -29,7 +29,7 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@8b842e721d38d18bea23b57f4c040e53331f4ca2 # renovate: tag=v3
+        uses: docker/metadata-action@3a3bb3a81753dc99f090d24ee7e5343838b73a96 # renovate: tag=v3
         with:
           flavor: |
             latest=true
