@@ -24,5 +24,16 @@
       "depNameTemplate": "golangci/golangci-lint",
       "datasourceTemplate": "github-tags"
     }
+  ],
+  "packageRules": [
+    {
+      "matchPackagePatterns": [
+        "^k8s.io/client-go$"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "enabled": false
+    }
   ]
 }
