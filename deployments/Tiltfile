@@ -1,11 +1,2 @@
-k8s_yaml('tilt.yaml')
-# docker_build(
-#     'nginx-image',
-#     'docker',
-#     dockerfile='docker/Dockerfile',
-# )
-k8s_resource(
-    'nginx',
-    port_forwards=['8080:80'],
-    pod_readiness="wait",
-)
+
+include('./k8s/Tiltfile')

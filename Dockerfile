@@ -7,9 +7,11 @@ COPY go.sum .
 RUN go mod download
 
 COPY . .
-RUN go install .
+RUN go install ./...
+RUN ls -al /go/bin
 
 # package
 FROM alpine:3.16.0@sha256:686d8c9dfa6f3ccfc8230bc3178d23f84eeaf7e457f36f271ab1acc53015037c
 COPY --from=compile /go/bin/k8s-gitlab-gc /k8s-gitlab-gc
+COPY --from=compile /go/bin/k8s-gitlab-gc-test /k8s-gitlab-gc-test
 ENTRYPOINT ["/k8s-gitlab-gc"]

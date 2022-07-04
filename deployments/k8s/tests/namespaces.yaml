@@ -1,0 +1,36 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-namespaces
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: test-namespaces
+    spec:
+      containers:
+      - name: tests
+        image: k8s-gitlab-gc-image-tilt-ref
+        command:
+        - ash
+        - -c
+        - |
+          set -o errexit
+          set -o nounset
+          # set -o xtrace
+
+          if set +o | grep -F 'set +o pipefail' > /dev/null; then
+            # shellcheck disable=SC3040
+            set -o pipefail
+          fi
+
+          if set +o | grep -F 'set +o posix' > /dev/null; then
+            # shellcheck disable=SC3040
+            set -o posix
+          fi
+
+          # -----------------------------------------------------------------------------
+
+          /k8s-gitlab-gc-test
+      restartPolicy: Never

@@ -1,0 +1,11 @@
+
+docker_build(
+    ref='k8s-gitlab-gc-image-tilt-ref',
+    context='../../../.',
+    dockerfile='../../../Dockerfile',
+    # target='',
+)
+
+k8s_yaml('namespaces.yaml')
+
+
