@@ -2,7 +2,9 @@ package gc
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 
@@ -57,13 +59,94 @@ func ContinuousIntegrationNamespaces(ctx context.Context, namespaces corev1.Name
 		}
 
 		fmt.Printf("deleting namespace: %s, age: %d, maxAge: %d, ageInHours: %d, ageInDays: %d\n", name, age, maxAge, age/60/60, age/60/60/24)
-		err = namespaces.Delete(ctx, name, metav1.DeleteOptions{})
+		// err = namespaces.Delete(ctx, name, metav1.DeleteOptions{})
+		// if err != nil {
+		// 	return err
+		// }
+	}
+
+	return nil
+}
+
+// NamespacesFromResourceAge removes no longer used namespaces based on newest resources age
+func NamespacesFromResourceAge(ctx context.Context, k8sCoreInterface corev1.CoreV1Interface) error {
+	namespaces := k8sCoreInterface.Namespaces()
+	nss, err := namespaces.List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Amount of namespaces: %d\n", len(nss.Items))
+	if len(nss.Items) == 0 {
+		return nil
+	}
+
+	for _, ns := range nss.Items {
+		fmt.Printf("Analyzing namespace: %s\n", ns.ObjectMeta.Name)
+
+		client := k8sCoreInterface.Pods(ns.ObjectMeta.Name)
+		pods, err := client.List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return err
+		}
+
+		if len(pods.Items) == 0 {
+			fmt.Printf("\tNo Resources found.\n")
+			continue
+		}
+
+		newestResourceAge, err := getNewestResourceAge(ctx, k8sCoreInterface.Pods(ns.ObjectMeta.Name))
+		if err != nil {
+			return err
+		}
+
+		if isTerminating(ns) {
+			continue
+		}
+
+		for _, pod := range pods.Items {
+
+			age := age(pod.ObjectMeta.CreationTimestamp)
+			if age <= newestResourceAge {
+				continue
+			}
+
+			fmt.Printf("Deleting pod name: %s, age: %d, newestResourceAge: %d, ageInHours: %d\n", pod.ObjectMeta.Name, age, newestResourceAge, age/60/60)
+			// err = client.Delete(ctx, pod.ObjectMeta.Name, metav1.DeleteOptions{})
+			// if err != nil {
+			// 	return err
+			// }
 		}
 	}
 
 	return nil
+
+}
+
+func getNewestResourceAge(ctx context.Context, client corev1.PodInterface) (int64, error) {
+	pods, err := client.List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return -1, (err)
+	}
+
+	if len(pods.Items) == 0 {
+		return -1, errors.New("No resources found")
+	}
+
+	newestResourceAge := int64(math.MaxInt64)
+	for _, pod := range pods.Items {
+
+		age := age(pod.ObjectMeta.CreationTimestamp)
+		if age > int64(newestResourceAge) {
+			continue
+		}
+		newestResourceAge = age
+	}
+
+	fmt.Printf("Newest Age: %d\n", newestResourceAge)
+
+	return newestResourceAge, nil
+
 }
 
 func hasOptedOut(annotations map[string]string, optOutAnnotations []string) bool {
