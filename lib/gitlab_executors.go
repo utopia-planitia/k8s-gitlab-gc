@@ -31,10 +31,10 @@ func GitlabExecutors(ctx context.Context, client corev1.PodInterface, maxAge int
 		}
 
 		fmt.Printf("deleting pod: %s, age: %d, maxAge: %d, ageInHours: %d\n", pod.ObjectMeta.Name, age, maxAge, age/60/60)
-		err = client.Delete(ctx, pod.ObjectMeta.Name, metav1.DeleteOptions{})
-		if err != nil {
-			return err
-		}
+		// err = client.Delete(ctx, pod.ObjectMeta.Name, metav1.DeleteOptions{})
+		// if err != nil {
+		// 	return err
+		// }
 	}
 
 	return nil

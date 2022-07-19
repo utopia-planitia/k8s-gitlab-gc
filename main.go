@@ -48,6 +48,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to clean up ci namespaces: %s", err)
 	}
+
+	err = gc.NamespacesFromResourceAge(ctx, k8s.CoreV1())
+	if err != nil {
+		log.Fatalf("failed to clean up ci namespaces based on pod ages: %s", err)
+	}
+
 }
 
 func provideKubernetesClient(kubeconfig string) (*kubernetes.Clientset, error) {
