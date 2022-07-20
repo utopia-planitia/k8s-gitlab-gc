@@ -2,7 +2,9 @@ package gc
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 
@@ -11,8 +13,56 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
+type resourceAge int64
+type youngestResourceAgeFunc func(ctx context.Context, k8sCoreClient corev1.CoreV1Interface, namespace v1.Namespace) (resourceAge, error)
+
+var ErrEmptyK8sResourceList error = errors.New("emptyK8sResourceList")
+var ErrEmptyFnList error = errors.New("no ageFn functions in list provided")
+var ErrNoAges error = errors.New("couldn't get a single resource age from ageFns")
+
+func getDefaultResourceAgeFuncs() []youngestResourceAgeFunc {
+	return []youngestResourceAgeFunc{
+		namespaceAge,
+		youngestPodAge,
+	}
+}
+
+func youngestAge(ctx context.Context, ageFuncs []youngestResourceAgeFunc, k8sCoreClient corev1.CoreV1Interface, namespace v1.Namespace) (resourceAge, error) {
+	if len(ageFuncs) == 0 {
+		return resourceAge(0), ErrEmptyFnList
+	}
+
+	ages := []resourceAge{}
+	for _, ageFn := range ageFuncs {
+		age, err := ageFn(ctx, k8sCoreClient, namespace)
+		if err != nil {
+			// when we got a namespace with no pods
+			if errors.Is(err, ErrEmptyK8sResourceList) {
+				continue
+			}
+			return -1, fmt.Errorf("%s", err)
+		}
+
+		ages = append(ages, age)
+	}
+
+	if len(ages) == 0 {
+		return resourceAge(0), ErrNoAges
+	}
+
+	youngestResourceAge := ages[0]
+	for _, age := range ages {
+		if age < youngestResourceAge {
+			youngestResourceAge = age
+		}
+	}
+
+	return resourceAge(youngestResourceAge), nil
+}
+
 // ContinuousIntegrationNamespaces removes no longer used namespaces
-func ContinuousIntegrationNamespaces(ctx context.Context, namespaces corev1.NamespaceInterface, protectedBranches, optOutAnnotations []string, maxTestingAge, maxReviewAge int64) error {
+func ContinuousIntegrationNamespaces(ctx context.Context, k8sCoreClient corev1.CoreV1Interface, protectedBranches, optOutAnnotations []string, maxTestingAge, maxReviewAge int64) error {
+	namespaces := k8sCoreClient.Namespaces()
 	nss, err := namespaces.List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return err
@@ -51,8 +101,12 @@ func ContinuousIntegrationNamespaces(ctx context.Context, namespaces corev1.Name
 			maxAge = maxTestingAge
 		}
 
-		age := age(ns.ObjectMeta.CreationTimestamp)
-		if age < maxAge {
+		age, err := youngestAge(ctx, getDefaultResourceAgeFuncs(), k8sCoreClient, ns)
+		if err != nil {
+			return err
+		}
+
+		if int64(age) < maxAge {
 			continue
 		}
 
@@ -64,6 +118,33 @@ func ContinuousIntegrationNamespaces(ctx context.Context, namespaces corev1.Name
 	}
 
 	return nil
+}
+
+func namespaceAge(ctx context.Context, k8sCoreClient corev1.CoreV1Interface, namespace v1.Namespace) (resourceAge, error) {
+	return resourceAge(age(namespace.ObjectMeta.CreationTimestamp)), nil
+}
+
+func youngestPodAge(ctx context.Context, k8sCoreClient corev1.CoreV1Interface, namespace v1.Namespace) (resourceAge, error) {
+	podsClient := k8sCoreClient.Pods(namespace.ObjectMeta.Name)
+	pods, err := podsClient.List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return -1, err
+	}
+
+	if len(pods.Items) == 0 {
+		return -1, ErrEmptyK8sResourceList
+	}
+
+	youngestResourceAge := int64(math.MaxInt64)
+	for _, pod := range pods.Items {
+		age := age(pod.ObjectMeta.CreationTimestamp)
+
+		if age < int64(youngestResourceAge) {
+			youngestResourceAge = age
+		}
+	}
+
+	return resourceAge(youngestResourceAge), nil
 }
 
 func hasOptedOut(annotations map[string]string, optOutAnnotations []string) bool {

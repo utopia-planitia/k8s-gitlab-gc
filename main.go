@@ -44,7 +44,7 @@ func main() {
 		log.Fatalf("failed to clean up gitlab executors: %s", err)
 	}
 
-	err = gc.ContinuousIntegrationNamespaces(ctx, k8s.CoreV1().Namespaces(), strings.Split(*protectedBranches, ","), strings.Split(*optOutAnnotations, ","), *maxBuildNamespaceAge, *maxReviewNamespaceAge)
+	err = gc.ContinuousIntegrationNamespaces(ctx, k8s.CoreV1(), strings.Split(*protectedBranches, ","), strings.Split(*optOutAnnotations, ","), *maxBuildNamespaceAge, *maxReviewNamespaceAge)
 	if err != nil {
 		log.Fatalf("failed to clean up ci namespaces: %s", err)
 	}
