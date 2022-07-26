@@ -213,6 +213,7 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 		optOutAnnotations []string
 		maxTestingAge     int64
 		maxReviewAge      int64
+		dryRun            bool
 	}
 	tests := []struct {
 		name    string
@@ -252,6 +253,7 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 				optOutAnnotations: []string{},
 				maxTestingAge:     int64(60 * 60 * 6),
 				maxReviewAge:      int64(60 * 60 * 24 * 2),
+				dryRun:            false,
 			},
 			wantErr: false,
 		},
@@ -288,6 +290,7 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 				optOutAnnotations: []string{},
 				maxTestingAge:     int64(60 * 60 * 6),
 				maxReviewAge:      int64(60 * 60 * 24 * 2),
+				dryRun:            false,
 			},
 			wantErr: false,
 		},
@@ -324,6 +327,7 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 				optOutAnnotations: []string{},
 				maxTestingAge:     int64(60 * 60 * 6),
 				maxReviewAge:      int64(60 * 60 * 24 * 2),
+				dryRun:            false,
 			},
 			wantErr: false,
 		},
@@ -365,6 +369,7 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 				optOutAnnotations: []string{},
 				maxTestingAge:     int64(60 * 60 * 6),
 				maxReviewAge:      int64(60 * 60 * 24 * 2),
+				dryRun:            false,
 			},
 			wantErr: false,
 		},
@@ -401,6 +406,7 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 				optOutAnnotations: []string{},
 				maxTestingAge:     int64(60 * 60 * 6),
 				maxReviewAge:      int64(60 * 60 * 24 * 2),
+				dryRun:            false,
 			},
 			wantErr: false,
 		},
@@ -438,6 +444,7 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 				optOutAnnotations: []string{},
 				maxTestingAge:     int64(60 * 60 * 6),
 				maxReviewAge:      int64(60 * 60 * 24 * 2),
+				dryRun:            false,
 			},
 			wantErr: false,
 		},
@@ -475,6 +482,7 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 				optOutAnnotations: []string{},
 				maxTestingAge:     int64(60 * 60 * 6),
 				maxReviewAge:      int64(60 * 60 * 24 * 2),
+				dryRun:            false,
 			},
 			wantErr: false,
 		},
@@ -484,7 +492,7 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			if err := ContinuousIntegrationNamespaces(ctx, tt.args.k8sCoreClient, tt.args.protectedBranches, tt.args.optOutAnnotations, tt.args.maxTestingAge, tt.args.maxReviewAge); (err != nil) != tt.wantErr {
+			if err := ContinuousIntegrationNamespaces(ctx, tt.args.k8sCoreClient, tt.args.protectedBranches, tt.args.optOutAnnotations, tt.args.maxTestingAge, tt.args.maxReviewAge, tt.args.dryRun); (err != nil) != tt.wantErr {
 				t.Errorf("ContinuousIntegrationNamespaces() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			//deletions := tt.args.k8sCoreClient.namespaces.deletions

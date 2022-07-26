@@ -61,7 +61,7 @@ func youngestAge(ctx context.Context, ageFuncs []youngestResourceAgeFunc, k8sCor
 }
 
 // ContinuousIntegrationNamespaces removes no longer used namespaces
-func ContinuousIntegrationNamespaces(ctx context.Context, k8sCoreClient corev1.CoreV1Interface, protectedBranches, optOutAnnotations []string, maxTestingAge, maxReviewAge int64) error {
+func ContinuousIntegrationNamespaces(ctx context.Context, k8sCoreClient corev1.CoreV1Interface, protectedBranches, optOutAnnotations []string, maxTestingAge, maxReviewAge int64, dryRun bool) error {
 	namespaces := k8sCoreClient.Namespaces()
 	nss, err := namespaces.List(ctx, metav1.ListOptions{})
 	if err != nil {
@@ -111,6 +111,11 @@ func ContinuousIntegrationNamespaces(ctx context.Context, k8sCoreClient corev1.C
 		}
 
 		fmt.Printf("deleting namespace: %s, age: %d, maxAge: %d, ageInHours: %d, ageInDays: %d\n", name, age, maxAge, age/60/60, age/60/60/24)
+
+		if dryRun {
+			continue
+		}
+
 		err = namespaces.Delete(ctx, name, metav1.DeleteOptions{})
 		if err != nil {
 			return err

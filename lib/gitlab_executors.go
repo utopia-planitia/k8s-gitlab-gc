@@ -10,7 +10,7 @@ import (
 )
 
 // GitlabExecutors removes gitlab execution pods
-func GitlabExecutors(ctx context.Context, client corev1.PodInterface, maxAge int64) error {
+func GitlabExecutors(ctx context.Context, client corev1.PodInterface, maxAge int64, dryRun bool) error {
 	pods, err := client.List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return err
@@ -31,6 +31,11 @@ func GitlabExecutors(ctx context.Context, client corev1.PodInterface, maxAge int
 		}
 
 		fmt.Printf("deleting pod: %s, age: %d, maxAge: %d, ageInHours: %d\n", pod.ObjectMeta.Name, age, maxAge, age/60/60)
+
+		if dryRun {
+			continue
+		}
+
 		err = client.Delete(ctx, pod.ObjectMeta.Name, metav1.DeleteOptions{})
 		if err != nil {
 			return err

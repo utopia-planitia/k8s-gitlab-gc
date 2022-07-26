@@ -14,6 +14,7 @@ import (
 )
 
 func main() {
+	var dryRun = flag.Bool("dry-run", false, "execute in dry-run mode - no changes will be applied")
 	var kubeconfig = flag.String("kubeconfig", "", "(optional) absolute path to the kubeconfig file")
 	var gitlabRunnerNamespace = flag.String("gitlabRunnerNamespace", "gitlab-runner", "namespace to remove gitlab executors from")
 	var protectedBranches = flag.String("protectedBranches", "develop,master,main,preview,review,stage,staging", "comma separated list of substrings to mark a namespace as protected from deletion")
@@ -23,6 +24,7 @@ func main() {
 	var optOutAnnotations = flag.String("optOutAnnotations", "disable-automatic-garbage-collection", "comma separated list of annotations to protect namespaces from deletion, annotations need to be set to the string 'true'")
 	flag.Parse()
 
+	log.Printf("dryRun: %v\n", *dryRun)
 	log.Printf("kubeconfig: %v\n", *kubeconfig)
 	log.Printf("gitlabRunnerNamespace: %v\n", *gitlabRunnerNamespace)
 	log.Printf("protectedBranches: %v\n", *protectedBranches)
@@ -39,12 +41,12 @@ func main() {
 		log.Fatalf("failed initilize kubernetes client: %s", err)
 	}
 
-	err = gc.GitlabExecutors(ctx, k8s.CoreV1().Pods(*gitlabRunnerNamespace), *maxGitlabExecutorAge)
+	err = gc.GitlabExecutors(ctx, k8s.CoreV1().Pods(*gitlabRunnerNamespace), *maxGitlabExecutorAge, *dryRun)
 	if err != nil {
 		log.Fatalf("failed to clean up gitlab executors: %s", err)
 	}
 
-	err = gc.ContinuousIntegrationNamespaces(ctx, k8s.CoreV1(), strings.Split(*protectedBranches, ","), strings.Split(*optOutAnnotations, ","), *maxBuildNamespaceAge, *maxReviewNamespaceAge)
+	err = gc.ContinuousIntegrationNamespaces(ctx, k8s.CoreV1(), strings.Split(*protectedBranches, ","), strings.Split(*optOutAnnotations, ","), *maxBuildNamespaceAge, *maxReviewNamespaceAge, *dryRun)
 	if err != nil {
 		log.Fatalf("failed to clean up ci namespaces: %s", err)
 	}
