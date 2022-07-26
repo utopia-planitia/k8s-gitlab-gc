@@ -14,4 +14,8 @@ lint:
 		golangci-lint --timeout=540s run ./...
 .PHONY: test
 test:
-	go test ./...
+	go test $(shell go list ./... | grep -v "/test/e2e")
+
+.PHONY: e2e
+e2e:
+	go test ./test/e2e
