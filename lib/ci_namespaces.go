@@ -10,11 +10,19 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	typedappsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
+	typedbatchv1 "k8s.io/client-go/kubernetes/typed/batch/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
+type KubernetesClients struct {
+	CoreV1  corev1.CoreV1Interface
+	AppsV1  typedappsv1.AppsV1Interface
+	BatchV1 typedbatchv1.BatchV1Interface
+}
+
 type resourceAge int64
-type youngestResourceAgeFunc func(ctx context.Context, k8sCoreClient corev1.CoreV1Interface, namespace v1.Namespace) (resourceAge, error)
+type youngestResourceAgeFunc func(ctx context.Context, k8sClients KubernetesClients, namespace v1.Namespace) (resourceAge, error)
 
 var ErrEmptyK8sResourceList error = errors.New("emptyK8sResourceList")
 var ErrEmptyFnList error = errors.New("no ageFn functions in list provided")
@@ -27,14 +35,14 @@ func getDefaultResourceAgeFuncs() []youngestResourceAgeFunc {
 	}
 }
 
-func youngestAge(ctx context.Context, ageFuncs []youngestResourceAgeFunc, k8sCoreClient corev1.CoreV1Interface, namespace v1.Namespace) (resourceAge, error) {
+func youngestAge(ctx context.Context, ageFuncs []youngestResourceAgeFunc, k8sClients KubernetesClients, namespace v1.Namespace) (resourceAge, error) {
 	if len(ageFuncs) == 0 {
 		return resourceAge(0), ErrEmptyFnList
 	}
 
 	ages := []resourceAge{}
 	for _, ageFn := range ageFuncs {
-		age, err := ageFn(ctx, k8sCoreClient, namespace)
+		age, err := ageFn(ctx, k8sClients, namespace)
 		if err != nil {
 			// when we got a namespace with no pods
 			if errors.Is(err, ErrEmptyK8sResourceList) {
@@ -61,8 +69,9 @@ func youngestAge(ctx context.Context, ageFuncs []youngestResourceAgeFunc, k8sCor
 }
 
 // ContinuousIntegrationNamespaces removes no longer used namespaces
-func ContinuousIntegrationNamespaces(ctx context.Context, k8sCoreClient corev1.CoreV1Interface, protectedBranches, optOutAnnotations []string, maxTestingAge, maxReviewAge int64, dryRun bool) error {
-	namespaces := k8sCoreClient.Namespaces()
+func ContinuousIntegrationNamespaces(ctx context.Context, k8sClients KubernetesClients, protectedBranches, optOutAnnotations []string, maxTestingAge, maxReviewAge int64, dryRun bool) error {
+	corev1Client := k8sClients.CoreV1
+	namespaces := corev1Client.Namespaces()
 	nss, err := namespaces.List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return err
@@ -101,7 +110,7 @@ func ContinuousIntegrationNamespaces(ctx context.Context, k8sCoreClient corev1.C
 			maxAge = maxTestingAge
 		}
 
-		age, err := youngestAge(ctx, getDefaultResourceAgeFuncs(), k8sCoreClient, ns)
+		age, err := youngestAge(ctx, getDefaultResourceAgeFuncs(), k8sClients, ns)
 		if err != nil {
 			return err
 		}
@@ -125,12 +134,12 @@ func ContinuousIntegrationNamespaces(ctx context.Context, k8sCoreClient corev1.C
 	return nil
 }
 
-func namespaceAge(ctx context.Context, k8sCoreClient corev1.CoreV1Interface, namespace v1.Namespace) (resourceAge, error) {
+func namespaceAge(ctx context.Context, k8sClients KubernetesClients, namespace v1.Namespace) (resourceAge, error) {
 	return resourceAge(age(namespace.ObjectMeta.CreationTimestamp)), nil
 }
 
-func youngestPodAge(ctx context.Context, k8sCoreClient corev1.CoreV1Interface, namespace v1.Namespace) (resourceAge, error) {
-	podsClient := k8sCoreClient.Pods(namespace.ObjectMeta.Name)
+func youngestPodAge(ctx context.Context, k8sClients KubernetesClients, namespace v1.Namespace) (resourceAge, error) {
+	podsClient := k8sClients.CoreV1.Pods(namespace.ObjectMeta.Name)
 	pods, err := podsClient.List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return -1, err
@@ -150,6 +159,11 @@ func youngestPodAge(ctx context.Context, k8sCoreClient corev1.CoreV1Interface, n
 	}
 
 	return resourceAge(youngestResourceAge), nil
+}
+
+func youngestDeploymentAge(ctx context.Context, k8sCoreClient corev1.CoreV1Interface, namespace v1.Namespace) (resourceAge, error) {
+	// deploymentClient := k8sCoreClient.De
+	return resourceAge(0), nil
 }
 
 func hasOptedOut(annotations map[string]string, optOutAnnotations []string) bool {

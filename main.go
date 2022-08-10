@@ -46,7 +46,13 @@ func main() {
 		log.Fatalf("failed to clean up gitlab executors: %s", err)
 	}
 
-	err = gc.ContinuousIntegrationNamespaces(ctx, k8s.CoreV1(), strings.Split(*protectedBranches, ","), strings.Split(*optOutAnnotations, ","), *maxBuildNamespaceAge, *maxReviewNamespaceAge, *dryRun)
+	k8sClients := gc.KubernetesClients{
+		CoreV1:  k8s.CoreV1(),
+		AppsV1:  k8s.AppsV1(),
+		BatchV1: k8s.BatchV1(),
+	}
+
+	err = gc.ContinuousIntegrationNamespaces(ctx, k8sClients, strings.Split(*protectedBranches, ","), strings.Split(*optOutAnnotations, ","), *maxBuildNamespaceAge, *maxReviewNamespaceAge, *dryRun)
 	if err != nil {
 		log.Fatalf("failed to clean up ci namespaces: %s", err)
 	}

@@ -207,7 +207,8 @@ func (c *pods_mock) ProxyGet(scheme, name, port, path string, params map[string]
 
 func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 	type args struct {
-		k8sCoreClient     *TypedCoreV1Client_mock
+		k8sClients KubernetesClients
+		// k8sCoreClient     *TypedCoreV1Client_mock
 		expectedDeletes   int
 		protectedBranches []string
 		optOutAnnotations []string
@@ -223,25 +224,27 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 		{
 			name: "keep namespace",
 			args: args{
-				k8sCoreClient: &TypedCoreV1Client_mock{
-					namespaces: &namespaces_mock{
-						list: &v1.NamespaceList{Items: []v1.Namespace{
-							{ObjectMeta: metav1.ObjectMeta{
-								Name: "testing",
-								CreationTimestamp: metav1.NewTime(
-									time.Now(),
-								),
+				k8sClients: KubernetesClients{
+					CoreV1: &TypedCoreV1Client_mock{
+						namespaces: &namespaces_mock{
+							list: &v1.NamespaceList{Items: []v1.Namespace{
+								{ObjectMeta: metav1.ObjectMeta{
+									Name: "testing",
+									CreationTimestamp: metav1.NewTime(
+										time.Now(),
+									),
+								}},
 							}},
-						}},
-					},
-					pods: &pods_mock{
-						list: &v1.PodList{
-							Items: []v1.Pod{
-								{
-									ObjectMeta: metav1.ObjectMeta{
-										CreationTimestamp: metav1.NewTime(
-											time.Now(),
-										),
+						},
+						pods: &pods_mock{
+							list: &v1.PodList{
+								Items: []v1.Pod{
+									{
+										ObjectMeta: metav1.ObjectMeta{
+											CreationTimestamp: metav1.NewTime(
+												time.Now(),
+											),
+										},
 									},
 								},
 							},
@@ -260,25 +263,27 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 		{
 			name: "keep ci namespace",
 			args: args{
-				k8sCoreClient: &TypedCoreV1Client_mock{
-					namespaces: &namespaces_mock{
-						list: &v1.NamespaceList{Items: []v1.Namespace{
-							{ObjectMeta: metav1.ObjectMeta{
-								Name: "testing-ci",
-								CreationTimestamp: metav1.Time{
-									Time: time.Now().Add(-1 * time.Hour),
-								},
+				k8sClients: KubernetesClients{
+					CoreV1: &TypedCoreV1Client_mock{
+						namespaces: &namespaces_mock{
+							list: &v1.NamespaceList{Items: []v1.Namespace{
+								{ObjectMeta: metav1.ObjectMeta{
+									Name: "testing-ci",
+									CreationTimestamp: metav1.Time{
+										Time: time.Now().Add(-1 * time.Hour),
+									},
+								}},
 							}},
-						}},
-					},
-					pods: &pods_mock{
-						list: &v1.PodList{
-							Items: []v1.Pod{
-								{
-									ObjectMeta: metav1.ObjectMeta{
-										CreationTimestamp: metav1.NewTime(
-											time.Now().Add(-1 * time.Hour),
-										),
+						},
+						pods: &pods_mock{
+							list: &v1.PodList{
+								Items: []v1.Pod{
+									{
+										ObjectMeta: metav1.ObjectMeta{
+											CreationTimestamp: metav1.NewTime(
+												time.Now().Add(-1 * time.Hour),
+											),
+										},
 									},
 								},
 							},
@@ -297,25 +302,27 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 		{
 			name: "delete ci namespace",
 			args: args{
-				k8sCoreClient: &TypedCoreV1Client_mock{
-					namespaces: &namespaces_mock{
-						list: &v1.NamespaceList{Items: []v1.Namespace{
-							{ObjectMeta: metav1.ObjectMeta{
-								Name: "ci-testing-d41d8cd98f00b204e9800998ecf8427e",
-								CreationTimestamp: metav1.Time{
-									Time: time.Now().Add(-10 * time.Hour),
-								},
+				k8sClients: KubernetesClients{
+					CoreV1: &TypedCoreV1Client_mock{
+						namespaces: &namespaces_mock{
+							list: &v1.NamespaceList{Items: []v1.Namespace{
+								{ObjectMeta: metav1.ObjectMeta{
+									Name: "ci-testing-d41d8cd98f00b204e9800998ecf8427e",
+									CreationTimestamp: metav1.Time{
+										Time: time.Now().Add(-10 * time.Hour),
+									},
+								}},
 							}},
-						}},
-					},
-					pods: &pods_mock{
-						list: &v1.PodList{
-							Items: []v1.Pod{
-								{
-									ObjectMeta: metav1.ObjectMeta{
-										CreationTimestamp: metav1.NewTime(
-											time.Now().Add(-10 * time.Hour),
-										),
+						},
+						pods: &pods_mock{
+							list: &v1.PodList{
+								Items: []v1.Pod{
+									{
+										ObjectMeta: metav1.ObjectMeta{
+											CreationTimestamp: metav1.NewTime(
+												time.Now().Add(-10 * time.Hour),
+											),
+										},
 									},
 								},
 							},
@@ -334,30 +341,32 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 		{
 			name: "skip terminating namespace",
 			args: args{
-				k8sCoreClient: &TypedCoreV1Client_mock{
-					namespaces: &namespaces_mock{
-						list: &v1.NamespaceList{Items: []v1.Namespace{
-							{
-								ObjectMeta: metav1.ObjectMeta{
-									Name: "ci-terminating-d41d8cd98f00b204e9800998ecf8427e",
-									CreationTimestamp: metav1.Time{
-										Time: time.Now().Add(-10 * time.Hour),
-									},
-								},
-								Status: v1.NamespaceStatus{
-									Phase: v1.NamespaceTerminating,
-								},
-							},
-						}},
-					},
-					pods: &pods_mock{
-						list: &v1.PodList{
-							Items: []v1.Pod{
+				k8sClients: KubernetesClients{
+					CoreV1: &TypedCoreV1Client_mock{
+						namespaces: &namespaces_mock{
+							list: &v1.NamespaceList{Items: []v1.Namespace{
 								{
 									ObjectMeta: metav1.ObjectMeta{
-										CreationTimestamp: metav1.NewTime(
-											time.Now().Add(-10 * time.Hour),
-										),
+										Name: "ci-terminating-d41d8cd98f00b204e9800998ecf8427e",
+										CreationTimestamp: metav1.Time{
+											Time: time.Now().Add(-10 * time.Hour),
+										},
+									},
+									Status: v1.NamespaceStatus{
+										Phase: v1.NamespaceTerminating,
+									},
+								},
+							}},
+						},
+						pods: &pods_mock{
+							list: &v1.PodList{
+								Items: []v1.Pod{
+									{
+										ObjectMeta: metav1.ObjectMeta{
+											CreationTimestamp: metav1.NewTime(
+												time.Now().Add(-10 * time.Hour),
+											),
+										},
 									},
 								},
 							},
@@ -376,25 +385,27 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 		{
 			name: "it should delete ns - when ns age implies deletion + pod age is (almost) same as ns age",
 			args: args{
-				k8sCoreClient: &TypedCoreV1Client_mock{
-					namespaces: &namespaces_mock{
-						list: &v1.NamespaceList{Items: []v1.Namespace{
-							{ObjectMeta: metav1.ObjectMeta{
-								Name: "ci-testing-d41d8cd98f00b204e9800998ecf8427e",
-								CreationTimestamp: metav1.Time{
-									Time: time.Now().Add(-10 * time.Hour),
-								},
+				k8sClients: KubernetesClients{
+					CoreV1: &TypedCoreV1Client_mock{
+						namespaces: &namespaces_mock{
+							list: &v1.NamespaceList{Items: []v1.Namespace{
+								{ObjectMeta: metav1.ObjectMeta{
+									Name: "ci-testing-d41d8cd98f00b204e9800998ecf8427e",
+									CreationTimestamp: metav1.Time{
+										Time: time.Now().Add(-10 * time.Hour),
+									},
+								}},
 							}},
-						}},
-					},
-					pods: &pods_mock{
-						list: &v1.PodList{
-							Items: []v1.Pod{
-								{
-									ObjectMeta: metav1.ObjectMeta{
-										CreationTimestamp: metav1.NewTime(
-											time.Now().Add(-10 * time.Hour),
-										),
+						},
+						pods: &pods_mock{
+							list: &v1.PodList{
+								Items: []v1.Pod{
+									{
+										ObjectMeta: metav1.ObjectMeta{
+											CreationTimestamp: metav1.NewTime(
+												time.Now().Add(-10 * time.Hour),
+											),
+										},
 									},
 								},
 							},
@@ -414,25 +425,27 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 		{
 			name: "it should not delete ns - when ns age implies deletion but pod age is to young",
 			args: args{
-				k8sCoreClient: &TypedCoreV1Client_mock{
-					namespaces: &namespaces_mock{
-						list: &v1.NamespaceList{Items: []v1.Namespace{
-							{ObjectMeta: metav1.ObjectMeta{
-								Name: "ci-testing-d41d8cd98f00b204e9800998ecf8427e",
-								CreationTimestamp: metav1.Time{
-									Time: time.Now().Add(-10 * time.Hour),
-								},
+				k8sClients: KubernetesClients{
+					CoreV1: &TypedCoreV1Client_mock{
+						namespaces: &namespaces_mock{
+							list: &v1.NamespaceList{Items: []v1.Namespace{
+								{ObjectMeta: metav1.ObjectMeta{
+									Name: "ci-testing-d41d8cd98f00b204e9800998ecf8427e",
+									CreationTimestamp: metav1.Time{
+										Time: time.Now().Add(-10 * time.Hour),
+									},
+								}},
 							}},
-						}},
-					},
-					pods: &pods_mock{
-						list: &v1.PodList{
-							Items: []v1.Pod{
-								{
-									ObjectMeta: metav1.ObjectMeta{
-										CreationTimestamp: metav1.NewTime(
-											time.Now().Add(-1 * time.Hour),
-										),
+						},
+						pods: &pods_mock{
+							list: &v1.PodList{
+								Items: []v1.Pod{
+									{
+										ObjectMeta: metav1.ObjectMeta{
+											CreationTimestamp: metav1.NewTime(
+												time.Now().Add(-1 * time.Hour),
+											),
+										},
 									},
 								},
 							},
@@ -452,25 +465,27 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 		{
 			name: "it should delete ns - when ns implies deletion & pod age implies deletion",
 			args: args{
-				k8sCoreClient: &TypedCoreV1Client_mock{
-					namespaces: &namespaces_mock{
-						list: &v1.NamespaceList{Items: []v1.Namespace{
-							{ObjectMeta: metav1.ObjectMeta{
-								Name: "ci-testing-d41d8cd98f00b204e9800998ecf8427e",
-								CreationTimestamp: metav1.Time{
-									Time: time.Now().Add(-15 * time.Hour),
-								},
+				k8sClients: KubernetesClients{
+					CoreV1: &TypedCoreV1Client_mock{
+						namespaces: &namespaces_mock{
+							list: &v1.NamespaceList{Items: []v1.Namespace{
+								{ObjectMeta: metav1.ObjectMeta{
+									Name: "ci-testing-d41d8cd98f00b204e9800998ecf8427e",
+									CreationTimestamp: metav1.Time{
+										Time: time.Now().Add(-15 * time.Hour),
+									},
+								}},
 							}},
-						}},
-					},
-					pods: &pods_mock{
-						list: &v1.PodList{
-							Items: []v1.Pod{
-								{
-									ObjectMeta: metav1.ObjectMeta{
-										CreationTimestamp: metav1.NewTime(
-											time.Now().Add(-10 * time.Hour),
-										),
+						},
+						pods: &pods_mock{
+							list: &v1.PodList{
+								Items: []v1.Pod{
+									{
+										ObjectMeta: metav1.ObjectMeta{
+											CreationTimestamp: metav1.NewTime(
+												time.Now().Add(-10 * time.Hour),
+											),
+										},
 									},
 								},
 							},
@@ -492,11 +507,11 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			if err := ContinuousIntegrationNamespaces(ctx, tt.args.k8sCoreClient, tt.args.protectedBranches, tt.args.optOutAnnotations, tt.args.maxTestingAge, tt.args.maxReviewAge, tt.args.dryRun); (err != nil) != tt.wantErr {
+			if err := ContinuousIntegrationNamespaces(ctx, tt.args.k8sClients, tt.args.protectedBranches, tt.args.optOutAnnotations, tt.args.maxTestingAge, tt.args.maxReviewAge, tt.args.dryRun); (err != nil) != tt.wantErr {
 				t.Errorf("ContinuousIntegrationNamespaces() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			//deletions := tt.args.k8sCoreClient.namespaces.deletions
-			deletions := (tt.args.k8sCoreClient.namespaces.(*namespaces_mock)).deletions
+			deletions := tt.args.k8sClients.CoreV1.(*TypedCoreV1Client_mock).namespaces.(*namespaces_mock).deletions
 			if tt.args.expectedDeletes != deletions {
 				t.Errorf("deletions = %v, want %v", deletions, tt.args.expectedDeletes)
 			}
@@ -506,8 +521,8 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 
 func Test_ageFns_youngestAge(t *testing.T) {
 	type args struct {
-		k8sCoreClient *TypedCoreV1Client_mock
-		namespace     v1.Namespace
+		k8sClients KubernetesClients
+		namespace  v1.Namespace
 	}
 	tests := []struct {
 		name              string
@@ -520,7 +535,7 @@ func Test_ageFns_youngestAge(t *testing.T) {
 		{
 			name:              "empty ageFns list",
 			ageFuncs:          []youngestResourceAgeFunc{},
-			args:              args{k8sCoreClient: &TypedCoreV1Client_mock{}, namespace: v1.Namespace{}},
+			args:              args{k8sClients: KubernetesClients{}, namespace: v1.Namespace{}},
 			want:              resourceAge(0),
 			wantErr:           true,
 			expectedErrorType: ErrEmptyFnList,
@@ -528,13 +543,13 @@ func Test_ageFns_youngestAge(t *testing.T) {
 		{
 			name: "fn returning NO_AGES_ERROR (e.g. like pod only - empty list) ",
 			ageFuncs: []youngestResourceAgeFunc{
-				func(c context.Context, k typedcorev1.CoreV1Interface, n v1.Namespace) (resourceAge, error) {
+				func(c context.Context, k KubernetesClients, n v1.Namespace) (resourceAge, error) {
 					return resourceAge(0), ErrEmptyK8sResourceList
 				},
 			},
 			args: args{
-				k8sCoreClient: &TypedCoreV1Client_mock{},
-				namespace:     v1.Namespace{},
+				k8sClients: KubernetesClients{},
+				namespace:  v1.Namespace{},
 			},
 			want:              resourceAge(0),
 			wantErr:           true,
@@ -543,13 +558,13 @@ func Test_ageFns_youngestAge(t *testing.T) {
 		{
 			name: "single function returning age (like ns only, no pods OR only one pod, no ns)",
 			ageFuncs: []youngestResourceAgeFunc{
-				func(c context.Context, k typedcorev1.CoreV1Interface, n v1.Namespace) (resourceAge, error) {
+				func(c context.Context, k KubernetesClients, n v1.Namespace) (resourceAge, error) {
 					return resourceAge(54000), nil
 				},
 			},
 			args: args{
-				k8sCoreClient: &TypedCoreV1Client_mock{},
-				namespace:     v1.Namespace{},
+				k8sClients: KubernetesClients{},
+				namespace:  v1.Namespace{},
 			},
 			want:              resourceAge(54000),
 			wantErr:           false,
@@ -558,16 +573,16 @@ func Test_ageFns_youngestAge(t *testing.T) {
 		{
 			name: "two fns, first returns younger age",
 			ageFuncs: []youngestResourceAgeFunc{
-				func(c context.Context, k typedcorev1.CoreV1Interface, n v1.Namespace) (resourceAge, error) {
+				func(c context.Context, k KubernetesClients, n v1.Namespace) (resourceAge, error) {
 					return resourceAge(1), nil
 				},
-				func(c context.Context, k typedcorev1.CoreV1Interface, n v1.Namespace) (resourceAge, error) {
+				func(c context.Context, k KubernetesClients, n v1.Namespace) (resourceAge, error) {
 					return resourceAge(2), nil
 				},
 			},
 			args: args{
-				k8sCoreClient: &TypedCoreV1Client_mock{},
-				namespace:     v1.Namespace{},
+				k8sClients: KubernetesClients{},
+				namespace:  v1.Namespace{},
 			},
 			want:              resourceAge(1),
 			wantErr:           false,
@@ -576,16 +591,16 @@ func Test_ageFns_youngestAge(t *testing.T) {
 		{
 			name: "two fns, second returns younger age",
 			ageFuncs: []youngestResourceAgeFunc{
-				func(c context.Context, k typedcorev1.CoreV1Interface, n v1.Namespace) (resourceAge, error) {
+				func(c context.Context, k KubernetesClients, n v1.Namespace) (resourceAge, error) {
 					return resourceAge(2), nil
 				},
-				func(c context.Context, k typedcorev1.CoreV1Interface, n v1.Namespace) (resourceAge, error) {
+				func(c context.Context, k KubernetesClients, n v1.Namespace) (resourceAge, error) {
 					return resourceAge(1), nil
 				},
 			},
 			args: args{
-				k8sCoreClient: &TypedCoreV1Client_mock{},
-				namespace:     v1.Namespace{},
+				k8sClients: KubernetesClients{},
+				namespace:  v1.Namespace{},
 			},
 			want:              resourceAge(1),
 			wantErr:           false,
@@ -597,7 +612,7 @@ func Test_ageFns_youngestAge(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			got, err := youngestAge(ctx, tt.ageFuncs, tt.args.k8sCoreClient, tt.args.namespace)
+			got, err := youngestAge(ctx, tt.ageFuncs, tt.args.k8sClients, tt.args.namespace)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ageFns.youngestAge() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -621,9 +636,9 @@ func Test_ageFns_youngestAge(t *testing.T) {
 func Test_namespaceAge(t *testing.T) {
 	now := time.Now()
 	type args struct {
-		k8sCoreClient *TypedCoreV1Client_mock
-		namespace     v1.Namespace
-		expectedAge   resourceAge
+		k8sClients  KubernetesClients
+		namespace   v1.Namespace
+		expectedAge resourceAge
 	}
 	tests := []struct {
 		name    string
@@ -633,7 +648,7 @@ func Test_namespaceAge(t *testing.T) {
 		{
 			name: "get correct namespace age 10h",
 			args: args{
-				k8sCoreClient: &TypedCoreV1Client_mock{},
+				k8sClients: KubernetesClients{},
 				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
 					Name: "testing",
 					CreationTimestamp: metav1.NewTime(
@@ -647,7 +662,7 @@ func Test_namespaceAge(t *testing.T) {
 		{
 			name: "get correct namespace age 5h",
 			args: args{
-				k8sCoreClient: &TypedCoreV1Client_mock{},
+				k8sClients: KubernetesClients{},
 				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
 					Name: "testing",
 					CreationTimestamp: metav1.NewTime(
@@ -664,7 +679,7 @@ func Test_namespaceAge(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			namespace_age, err := namespaceAge(ctx, tt.args.k8sCoreClient, tt.args.namespace)
+			namespace_age, err := namespaceAge(ctx, tt.args.k8sClients, tt.args.namespace)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("namespaceAge() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -679,8 +694,8 @@ func Test_namespaceAge(t *testing.T) {
 func Test_youngestPodAge(t *testing.T) {
 	now := time.Now()
 	type args struct {
-		k8sCoreClient *TypedCoreV1Client_mock
-		namespace     v1.Namespace
+		k8sClients KubernetesClients
+		namespace  v1.Namespace
 	}
 	tests := []struct {
 		name              string
@@ -693,15 +708,17 @@ func Test_youngestPodAge(t *testing.T) {
 		{
 			name: "get correct pod age 10h",
 			args: args{
-				k8sCoreClient: &TypedCoreV1Client_mock{
-					pods: &pods_mock{
-						list: &v1.PodList{
-							Items: []v1.Pod{
-								{
-									ObjectMeta: metav1.ObjectMeta{
-										Name: "testingPod",
-										CreationTimestamp: metav1.Time{
-											Time: now.Add(-10 * time.Hour),
+				k8sClients: KubernetesClients{
+					CoreV1: &TypedCoreV1Client_mock{
+						pods: &pods_mock{
+							list: &v1.PodList{
+								Items: []v1.Pod{
+									{
+										ObjectMeta: metav1.ObjectMeta{
+											Name: "testingPod",
+											CreationTimestamp: metav1.Time{
+												Time: now.Add(-10 * time.Hour),
+											},
 										},
 									},
 								},
@@ -709,7 +726,6 @@ func Test_youngestPodAge(t *testing.T) {
 						},
 					},
 				},
-
 				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
 					Name: "testing",
 				}},
@@ -722,15 +738,17 @@ func Test_youngestPodAge(t *testing.T) {
 		{
 			name: "get correct pod age 5h",
 			args: args{
-				k8sCoreClient: &TypedCoreV1Client_mock{
-					pods: &pods_mock{
-						list: &v1.PodList{
-							Items: []v1.Pod{
-								{
-									ObjectMeta: metav1.ObjectMeta{
-										Name: "testingPod",
-										CreationTimestamp: metav1.Time{
-											Time: now.Add(-5 * time.Hour),
+				k8sClients: KubernetesClients{
+					CoreV1: &TypedCoreV1Client_mock{
+						pods: &pods_mock{
+							list: &v1.PodList{
+								Items: []v1.Pod{
+									{
+										ObjectMeta: metav1.ObjectMeta{
+											Name: "testingPod",
+											CreationTimestamp: metav1.Time{
+												Time: now.Add(-5 * time.Hour),
+											},
 										},
 									},
 								},
@@ -738,7 +756,6 @@ func Test_youngestPodAge(t *testing.T) {
 						},
 					},
 				},
-
 				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
 					Name: "testing",
 				}},
@@ -751,14 +768,15 @@ func Test_youngestPodAge(t *testing.T) {
 		{
 			name: "empty pod list - expect error",
 			args: args{
-				k8sCoreClient: &TypedCoreV1Client_mock{
-					pods: &pods_mock{
-						list: &v1.PodList{
-							Items: []v1.Pod{},
+				k8sClients: KubernetesClients{
+					CoreV1: &TypedCoreV1Client_mock{
+						pods: &pods_mock{
+							list: &v1.PodList{
+								Items: []v1.Pod{},
+							},
 						},
 					},
 				},
-
 				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
 					Name: "testing",
 				}},
@@ -798,7 +816,7 @@ func Test_youngestPodAge(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			got, err := youngestPodAge(ctx, tt.args.k8sCoreClient, tt.args.namespace)
+			got, err := youngestPodAge(ctx, tt.args.k8sClients, tt.args.namespace)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("youngestPodAge() error = %v, wantErr %v", err, tt.wantErr)
 				return
