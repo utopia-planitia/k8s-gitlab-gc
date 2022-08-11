@@ -154,6 +154,20 @@ func YoungestPodAge(ctx context.Context, k8sClients KubernetesClients, namespace
 	return ResourceAge(youngestResourceAge), nil
 }
 
+func YoungestDeploymentAge(ctx context.Context, k8sClients KubernetesClients, namespace v1.Namespace) (ResourceAge, error) {
+	deploymentClient := k8sClients.AppsV1.Deployments(namespace.ObjectMeta.Name)
+	deployments, err := deploymentClient.List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return -1, fmt.Errorf("unable to list deployments (k8s appsv1 deployment client): %s", err)
+	}
+
+	creationTimestampGetter := func(item appsv1.Deployment) metav1.Time {
+		return item.ObjectMeta.CreationTimestamp
+	}
+
+	return getYoungestItemsResourceAge(deployments.Items, creationTimestampGetter)
+}
+
 func getYoungestItemsResourceAge[item any](items []item, creationTimestampGetter func(item) metav1.Time) (ResourceAge, error) {
 	if len(items) == 0 {
 		return -1, ErrEmptyK8sResourceList

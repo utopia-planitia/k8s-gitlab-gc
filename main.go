@@ -70,5 +70,6 @@ func getDefaultResourceAgeFuncs() []gc.YoungestResourceAgeFunc {
 	return []gc.YoungestResourceAgeFunc{
 		gc.NamespaceAge,
 		gc.YoungestPodAge,
+		gc.YoungestDeploymentAge,
 	}
 }
