@@ -52,7 +52,7 @@ func main() {
 		BatchV1: k8s.BatchV1(),
 	}
 
-	err = gc.ContinuousIntegrationNamespaces(ctx, k8sClients, strings.Split(*protectedBranches, ","), strings.Split(*optOutAnnotations, ","), *maxBuildNamespaceAge, *maxReviewNamespaceAge, *dryRun)
+	err = gc.ContinuousIntegrationNamespaces(ctx, k8sClients, getDefaultResourceAgeFuncs(), strings.Split(*protectedBranches, ","), strings.Split(*optOutAnnotations, ","), *maxBuildNamespaceAge, *maxReviewNamespaceAge, *dryRun)
 	if err != nil {
 		log.Fatalf("failed to clean up ci namespaces: %s", err)
 	}
@@ -64,4 +64,11 @@ func provideKubernetesClient(kubeconfig string) (*kubernetes.Clientset, error) {
 		return nil, fmt.Errorf("failed to parse kubernetes configuration: %s", err)
 	}
 	return kubernetes.NewForConfig(k8sConfig)
+}
+
+func getDefaultResourceAgeFuncs() []gc.YoungestResourceAgeFunc {
+	return []gc.YoungestResourceAgeFunc{
+		gc.NamespaceAge,
+		gc.YoungestPodAge,
+	}
 }

@@ -21,26 +21,19 @@ type KubernetesClients struct {
 	BatchV1 typedbatchv1.BatchV1Interface
 }
 
-type resourceAge int64
-type youngestResourceAgeFunc func(ctx context.Context, k8sClients KubernetesClients, namespace v1.Namespace) (resourceAge, error)
+type ResourceAge int64
+type YoungestResourceAgeFunc func(ctx context.Context, k8sClients KubernetesClients, namespace v1.Namespace) (ResourceAge, error)
 
 var ErrEmptyK8sResourceList error = errors.New("emptyK8sResourceList")
 var ErrEmptyFnList error = errors.New("no ageFn functions in list provided")
 var ErrNoAges error = errors.New("couldn't get a single resource age from ageFns")
 
-func getDefaultResourceAgeFuncs() []youngestResourceAgeFunc {
-	return []youngestResourceAgeFunc{
-		namespaceAge,
-		youngestPodAge,
-	}
-}
-
-func youngestAge(ctx context.Context, ageFuncs []youngestResourceAgeFunc, k8sClients KubernetesClients, namespace v1.Namespace) (resourceAge, error) {
+func youngestAge(ctx context.Context, ageFuncs []YoungestResourceAgeFunc, k8sClients KubernetesClients, namespace v1.Namespace) (ResourceAge, error) {
 	if len(ageFuncs) == 0 {
-		return resourceAge(0), ErrEmptyFnList
+		return ResourceAge(0), ErrEmptyFnList
 	}
 
-	ages := []resourceAge{}
+	ages := []ResourceAge{}
 	for _, ageFn := range ageFuncs {
 		age, err := ageFn(ctx, k8sClients, namespace)
 		if err != nil {
@@ -55,7 +48,7 @@ func youngestAge(ctx context.Context, ageFuncs []youngestResourceAgeFunc, k8sCli
 	}
 
 	if len(ages) == 0 {
-		return resourceAge(0), ErrNoAges
+		return ResourceAge(0), ErrNoAges
 	}
 
 	youngestResourceAge := ages[0]
@@ -65,11 +58,11 @@ func youngestAge(ctx context.Context, ageFuncs []youngestResourceAgeFunc, k8sCli
 		}
 	}
 
-	return resourceAge(youngestResourceAge), nil
+	return ResourceAge(youngestResourceAge), nil
 }
 
 // ContinuousIntegrationNamespaces removes no longer used namespaces
-func ContinuousIntegrationNamespaces(ctx context.Context, k8sClients KubernetesClients, protectedBranches, optOutAnnotations []string, maxTestingAge, maxReviewAge int64, dryRun bool) error {
+func ContinuousIntegrationNamespaces(ctx context.Context, k8sClients KubernetesClients, ageFuncs []YoungestResourceAgeFunc, protectedBranches, optOutAnnotations []string, maxTestingAge, maxReviewAge int64, dryRun bool) error {
 	corev1Client := k8sClients.CoreV1
 	namespaces := corev1Client.Namespaces()
 	nss, err := namespaces.List(ctx, metav1.ListOptions{})
@@ -110,7 +103,7 @@ func ContinuousIntegrationNamespaces(ctx context.Context, k8sClients KubernetesC
 			maxAge = maxTestingAge
 		}
 
-		age, err := youngestAge(ctx, getDefaultResourceAgeFuncs(), k8sClients, ns)
+		age, err := youngestAge(ctx, ageFuncs, k8sClients, ns)
 		if err != nil {
 			return err
 		}
@@ -134,11 +127,11 @@ func ContinuousIntegrationNamespaces(ctx context.Context, k8sClients KubernetesC
 	return nil
 }
 
-func namespaceAge(ctx context.Context, k8sClients KubernetesClients, namespace v1.Namespace) (resourceAge, error) {
-	return resourceAge(age(namespace.ObjectMeta.CreationTimestamp)), nil
+func NamespaceAge(ctx context.Context, k8sClients KubernetesClients, namespace v1.Namespace) (ResourceAge, error) {
+	return ResourceAge(age(namespace.ObjectMeta.CreationTimestamp)), nil
 }
 
-func youngestPodAge(ctx context.Context, k8sClients KubernetesClients, namespace v1.Namespace) (resourceAge, error) {
+func YoungestPodAge(ctx context.Context, k8sClients KubernetesClients, namespace v1.Namespace) (ResourceAge, error) {
 	podsClient := k8sClients.CoreV1.Pods(namespace.ObjectMeta.Name)
 	pods, err := podsClient.List(ctx, metav1.ListOptions{})
 	if err != nil {
@@ -158,12 +151,7 @@ func youngestPodAge(ctx context.Context, k8sClients KubernetesClients, namespace
 		}
 	}
 
-	return resourceAge(youngestResourceAge), nil
-}
-
-func youngestDeploymentAge(ctx context.Context, k8sCoreClient corev1.CoreV1Interface, namespace v1.Namespace) (resourceAge, error) {
-	// deploymentClient := k8sCoreClient.De
-	return resourceAge(0), nil
+	return ResourceAge(youngestResourceAge), nil
 }
 
 func hasOptedOut(annotations map[string]string, optOutAnnotations []string) bool {

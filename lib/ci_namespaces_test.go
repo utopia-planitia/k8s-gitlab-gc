@@ -209,6 +209,7 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 	type args struct {
 		k8sClients KubernetesClients
 		// k8sCoreClient     *TypedCoreV1Client_mock
+		ageFuncs          []YoungestResourceAgeFunc
 		expectedDeletes   int
 		protectedBranches []string
 		optOutAnnotations []string
@@ -251,6 +252,10 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 						},
 					},
 				},
+				ageFuncs: []YoungestResourceAgeFunc{
+					NamespaceAge,
+					YoungestPodAge,
+				},
 				expectedDeletes:   0,
 				protectedBranches: []string{},
 				optOutAnnotations: []string{},
@@ -290,6 +295,10 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 						},
 					},
 				},
+				ageFuncs: []YoungestResourceAgeFunc{
+					NamespaceAge,
+					YoungestPodAge,
+				},
 				expectedDeletes:   0,
 				protectedBranches: []string{},
 				optOutAnnotations: []string{},
@@ -328,6 +337,10 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 							},
 						},
 					},
+				},
+				ageFuncs: []YoungestResourceAgeFunc{
+					NamespaceAge,
+					YoungestPodAge,
 				},
 				expectedDeletes:   1,
 				protectedBranches: []string{},
@@ -373,6 +386,10 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 						},
 					},
 				},
+				ageFuncs: []YoungestResourceAgeFunc{
+					NamespaceAge,
+					YoungestPodAge,
+				},
 				expectedDeletes:   0,
 				protectedBranches: []string{},
 				optOutAnnotations: []string{},
@@ -411,6 +428,10 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 							},
 						},
 					},
+				},
+				ageFuncs: []YoungestResourceAgeFunc{
+					NamespaceAge,
+					YoungestPodAge,
 				},
 				expectedDeletes:   1,
 				protectedBranches: []string{},
@@ -452,6 +473,10 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 						},
 					},
 				},
+				ageFuncs: []YoungestResourceAgeFunc{
+					NamespaceAge,
+					YoungestPodAge,
+				},
 				expectedDeletes:   0,
 				protectedBranches: []string{},
 				optOutAnnotations: []string{},
@@ -492,6 +517,10 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 						},
 					},
 				},
+				ageFuncs: []YoungestResourceAgeFunc{
+					NamespaceAge,
+					YoungestPodAge,
+				},
 				expectedDeletes:   1,
 				protectedBranches: []string{},
 				optOutAnnotations: []string{},
@@ -507,7 +536,7 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			if err := ContinuousIntegrationNamespaces(ctx, tt.args.k8sClients, tt.args.protectedBranches, tt.args.optOutAnnotations, tt.args.maxTestingAge, tt.args.maxReviewAge, tt.args.dryRun); (err != nil) != tt.wantErr {
+			if err := ContinuousIntegrationNamespaces(ctx, tt.args.k8sClients, tt.args.ageFuncs, tt.args.protectedBranches, tt.args.optOutAnnotations, tt.args.maxTestingAge, tt.args.maxReviewAge, tt.args.dryRun); (err != nil) != tt.wantErr {
 				t.Errorf("ContinuousIntegrationNamespaces() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			//deletions := tt.args.k8sCoreClient.namespaces.deletions
@@ -526,83 +555,83 @@ func Test_ageFns_youngestAge(t *testing.T) {
 	}
 	tests := []struct {
 		name              string
-		ageFuncs          []youngestResourceAgeFunc
+		ageFuncs          []YoungestResourceAgeFunc
 		args              args
-		want              resourceAge
+		want              ResourceAge
 		wantErr           bool
 		expectedErrorType error
 	}{
 		{
 			name:              "empty ageFns list",
-			ageFuncs:          []youngestResourceAgeFunc{},
+			ageFuncs:          []YoungestResourceAgeFunc{},
 			args:              args{k8sClients: KubernetesClients{}, namespace: v1.Namespace{}},
-			want:              resourceAge(0),
+			want:              ResourceAge(0),
 			wantErr:           true,
 			expectedErrorType: ErrEmptyFnList,
 		},
 		{
 			name: "fn returning NO_AGES_ERROR (e.g. like pod only - empty list) ",
-			ageFuncs: []youngestResourceAgeFunc{
-				func(c context.Context, k KubernetesClients, n v1.Namespace) (resourceAge, error) {
-					return resourceAge(0), ErrEmptyK8sResourceList
+			ageFuncs: []YoungestResourceAgeFunc{
+				func(c context.Context, k KubernetesClients, n v1.Namespace) (ResourceAge, error) {
+					return ResourceAge(0), ErrEmptyK8sResourceList
 				},
 			},
 			args: args{
 				k8sClients: KubernetesClients{},
 				namespace:  v1.Namespace{},
 			},
-			want:              resourceAge(0),
+			want:              ResourceAge(0),
 			wantErr:           true,
 			expectedErrorType: ErrNoAges,
 		},
 		{
 			name: "single function returning age (like ns only, no pods OR only one pod, no ns)",
-			ageFuncs: []youngestResourceAgeFunc{
-				func(c context.Context, k KubernetesClients, n v1.Namespace) (resourceAge, error) {
-					return resourceAge(54000), nil
+			ageFuncs: []YoungestResourceAgeFunc{
+				func(c context.Context, k KubernetesClients, n v1.Namespace) (ResourceAge, error) {
+					return ResourceAge(54000), nil
 				},
 			},
 			args: args{
 				k8sClients: KubernetesClients{},
 				namespace:  v1.Namespace{},
 			},
-			want:              resourceAge(54000),
+			want:              ResourceAge(54000),
 			wantErr:           false,
 			expectedErrorType: nil,
 		},
 		{
 			name: "two fns, first returns younger age",
-			ageFuncs: []youngestResourceAgeFunc{
-				func(c context.Context, k KubernetesClients, n v1.Namespace) (resourceAge, error) {
-					return resourceAge(1), nil
+			ageFuncs: []YoungestResourceAgeFunc{
+				func(c context.Context, k KubernetesClients, n v1.Namespace) (ResourceAge, error) {
+					return ResourceAge(1), nil
 				},
-				func(c context.Context, k KubernetesClients, n v1.Namespace) (resourceAge, error) {
-					return resourceAge(2), nil
+				func(c context.Context, k KubernetesClients, n v1.Namespace) (ResourceAge, error) {
+					return ResourceAge(2), nil
 				},
 			},
 			args: args{
 				k8sClients: KubernetesClients{},
 				namespace:  v1.Namespace{},
 			},
-			want:              resourceAge(1),
+			want:              ResourceAge(1),
 			wantErr:           false,
 			expectedErrorType: nil,
 		},
 		{
 			name: "two fns, second returns younger age",
-			ageFuncs: []youngestResourceAgeFunc{
-				func(c context.Context, k KubernetesClients, n v1.Namespace) (resourceAge, error) {
-					return resourceAge(2), nil
+			ageFuncs: []YoungestResourceAgeFunc{
+				func(c context.Context, k KubernetesClients, n v1.Namespace) (ResourceAge, error) {
+					return ResourceAge(2), nil
 				},
-				func(c context.Context, k KubernetesClients, n v1.Namespace) (resourceAge, error) {
-					return resourceAge(1), nil
+				func(c context.Context, k KubernetesClients, n v1.Namespace) (ResourceAge, error) {
+					return ResourceAge(1), nil
 				},
 			},
 			args: args{
 				k8sClients: KubernetesClients{},
 				namespace:  v1.Namespace{},
 			},
-			want:              resourceAge(1),
+			want:              ResourceAge(1),
 			wantErr:           false,
 			expectedErrorType: nil,
 		},
@@ -638,7 +667,7 @@ func Test_namespaceAge(t *testing.T) {
 	type args struct {
 		k8sClients  KubernetesClients
 		namespace   v1.Namespace
-		expectedAge resourceAge
+		expectedAge ResourceAge
 	}
 	tests := []struct {
 		name    string
@@ -655,7 +684,7 @@ func Test_namespaceAge(t *testing.T) {
 						now.Add(-10 * time.Hour),
 					),
 				}},
-				expectedAge: resourceAge(36000),
+				expectedAge: ResourceAge(36000),
 			},
 			wantErr: false,
 		},
@@ -669,7 +698,7 @@ func Test_namespaceAge(t *testing.T) {
 						now.Add(-5 * time.Hour),
 					),
 				}},
-				expectedAge: resourceAge(18000),
+				expectedAge: ResourceAge(18000),
 			},
 			wantErr: false,
 		},
@@ -679,7 +708,7 @@ func Test_namespaceAge(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			namespace_age, err := namespaceAge(ctx, tt.args.k8sClients, tt.args.namespace)
+			namespace_age, err := NamespaceAge(ctx, tt.args.k8sClients, tt.args.namespace)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("namespaceAge() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -700,7 +729,7 @@ func Test_youngestPodAge(t *testing.T) {
 	tests := []struct {
 		name              string
 		args              args
-		expectedAge       resourceAge
+		expectedAge       ResourceAge
 		wantErr           bool
 		checkErrorType    bool
 		expectedErrorType error
@@ -730,7 +759,7 @@ func Test_youngestPodAge(t *testing.T) {
 					Name: "testing",
 				}},
 			},
-			expectedAge:       resourceAge(36000),
+			expectedAge:       ResourceAge(36000),
 			wantErr:           false,
 			checkErrorType:    false,
 			expectedErrorType: nil,
@@ -760,7 +789,7 @@ func Test_youngestPodAge(t *testing.T) {
 					Name: "testing",
 				}},
 			},
-			expectedAge:       resourceAge(18000),
+			expectedAge:       ResourceAge(18000),
 			wantErr:           false,
 			checkErrorType:    false,
 			expectedErrorType: nil,
@@ -781,7 +810,7 @@ func Test_youngestPodAge(t *testing.T) {
 					Name: "testing",
 				}},
 			},
-			expectedAge:       resourceAge(-1),
+			expectedAge:       ResourceAge(-1),
 			wantErr:           true,
 			checkErrorType:    true,
 			expectedErrorType: ErrEmptyK8sResourceList,
@@ -816,7 +845,7 @@ func Test_youngestPodAge(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			got, err := youngestPodAge(ctx, tt.args.k8sClients, tt.args.namespace)
+			got, err := YoungestPodAge(ctx, tt.args.k8sClients, tt.args.namespace)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("youngestPodAge() error = %v, wantErr %v", err, tt.wantErr)
 				return
