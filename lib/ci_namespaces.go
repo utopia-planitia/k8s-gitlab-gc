@@ -183,6 +183,20 @@ func YoungestStatefulsetAge(ctx context.Context, k8sClients KubernetesClients, n
 	return getYoungestItemsResourceAge(statefulsets.Items, creationTimestampGetter)
 }
 
+func YoungestDaemonsetAge(ctx context.Context, k8sClients KubernetesClients, namespace v1.Namespace) (ResourceAge, error) {
+	daemonsetsClient := k8sClients.AppsV1.DaemonSets(namespace.ObjectMeta.Name)
+	daemonsets, err := daemonsetsClient.List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return -1, fmt.Errorf("unable to list daemonsets (k8s appsv1 daemonset client): %s", err)
+	}
+
+	creationTimestampGetter := func(item appsv1.DaemonSet) metav1.Time {
+		return item.ObjectMeta.CreationTimestamp
+	}
+
+	return getYoungestItemsResourceAge(daemonsets.Items, creationTimestampGetter)
+}
+
 func getYoungestItemsResourceAge[item any](items []item, creationTimestampGetter func(item) metav1.Time) (ResourceAge, error) {
 	if len(items) == 0 {
 		return -1, ErrEmptyK8sResourceList

@@ -213,6 +213,7 @@ func (c *pods_mock) ProxyGet(scheme, name, port, path string, params map[string]
 type TypedAppsV1Client_mock struct { //mock CoreV1Interface
 	deployments  typedappsv1.DeploymentInterface //add setter func?
 	statefulsets typedappsv1.StatefulSetInterface
+	daemonsets   typedappsv1.DaemonSetInterface
 }
 
 func (c *TypedAppsV1Client_mock) RESTClient() rest.Interface {
@@ -222,7 +223,7 @@ func (c *TypedAppsV1Client_mock) ControllerRevisions(namespace string) typedapps
 	panic("mocked ControllerRevisions not implemented")
 }
 func (c *TypedAppsV1Client_mock) DaemonSets(namespace string) typedappsv1.DaemonSetInterface {
-	panic("mocked DaemonSets not implemented")
+	return c.daemonsets
 }
 func (c *TypedAppsV1Client_mock) Deployments(namespace string) typedappsv1.DeploymentInterface {
 	return c.deployments
@@ -328,6 +329,45 @@ func (*statefulsets_mock) UpdateScale(ctx context.Context, statefulSetName strin
 }
 func (*statefulsets_mock) ApplyScale(ctx context.Context, statefulSetName string, scale *applyconfigurationsautoscalingv1.ScaleApplyConfiguration, opts metav1.ApplyOptions) (*autoscalingv1.Scale, error) {
 	panic("mocked ApplyScale not implemented")
+}
+
+type daemonsets_mock struct {
+	list            *appsv1.DaemonSetList
+	returnListError error
+}
+
+func (*daemonsets_mock) Create(ctx context.Context, daemonSet *appsv1.DaemonSet, opts metav1.CreateOptions) (*appsv1.DaemonSet, error) {
+	panic("mocked Create not implemented")
+}
+func (*daemonsets_mock) Update(ctx context.Context, daemonSet *appsv1.DaemonSet, opts metav1.UpdateOptions) (*appsv1.DaemonSet, error) {
+	panic("mocked Update not implemented")
+}
+func (*daemonsets_mock) UpdateStatus(ctx context.Context, daemonSet *appsv1.DaemonSet, opts metav1.UpdateOptions) (*appsv1.DaemonSet, error) {
+	panic("mocked UpdateStatus not implemented")
+}
+func (*daemonsets_mock) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+	panic("mocked Delete not implemented")
+}
+func (*daemonsets_mock) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
+	panic("mocked DeleteCollection not implemented")
+}
+func (*daemonsets_mock) Get(ctx context.Context, name string, opts metav1.GetOptions) (*appsv1.DaemonSet, error) {
+	panic("mocked Get not implemented")
+}
+func (s *daemonsets_mock) List(ctx context.Context, opts metav1.ListOptions) (*appsv1.DaemonSetList, error) {
+	return s.list, s.returnListError
+}
+func (*daemonsets_mock) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+	panic("mocked Watch not implemented")
+}
+func (*daemonsets_mock) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *appsv1.DaemonSet, err error) {
+	panic("mocked Patch not implemented")
+}
+func (*daemonsets_mock) Apply(ctx context.Context, daemonSet *confappsv1.DaemonSetApplyConfiguration, opts metav1.ApplyOptions) (result *appsv1.DaemonSet, err error) {
+	panic("mocked Apply not implemented")
+}
+func (*daemonsets_mock) ApplyStatus(ctx context.Context, daemonSet *confappsv1.DaemonSetApplyConfiguration, opts metav1.ApplyOptions) (result *appsv1.DaemonSet, err error) {
+	panic("mocked ApplyStatus not implemented")
 }
 
 func Test_ContinuousIntegrationNamespaces(t *testing.T) {
@@ -1390,6 +1430,157 @@ func TestYoungestStatefulsetAge(t *testing.T) {
 			}
 			if got != tt.expectedAge {
 				t.Errorf("YoungestStatefulsetAge() = %v, want %v", got, tt.expectedAge)
+			}
+		})
+	}
+}
+
+func TestYoungestDaemonsetAge(t *testing.T) {
+	now := time.Now()
+
+	type args struct {
+		k8sClients KubernetesClients
+		namespace  v1.Namespace
+	}
+	tests := []struct {
+		name              string
+		args              args
+		expectedAge       ResourceAge
+		wantErr           bool
+		checkErrorType    bool
+		expectedErrorType error
+	}{
+		// TODO: Add test cases.
+		{
+			name: "expect list error (from k8s client side)",
+			args: args{
+				k8sClients: KubernetesClients{
+					AppsV1: &TypedAppsV1Client_mock{
+						daemonsets: &daemonsets_mock{
+							list: &appsv1.DaemonSetList{
+								Items: []appsv1.DaemonSet{},
+							},
+							returnListError: errors.New("pseudo random k8s appsv1 daemonsets list error"),
+						},
+					},
+				},
+				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+					Name: "testing",
+				}},
+			},
+			expectedAge:       ResourceAge(-1),
+			wantErr:           true,
+			checkErrorType:    false,
+			expectedErrorType: nil,
+		},
+		{
+			name: "get correct daemonset age 10h",
+			args: args{
+				k8sClients: KubernetesClients{
+					AppsV1: &TypedAppsV1Client_mock{
+						daemonsets: &daemonsets_mock{
+							list: &appsv1.DaemonSetList{
+								Items: []appsv1.DaemonSet{
+									{
+										ObjectMeta: metav1.ObjectMeta{
+											CreationTimestamp: metav1.Time{
+												Time: now.Add(-10 * time.Hour),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+					Name: "testing",
+				}},
+			},
+			expectedAge:       ResourceAge(36000),
+			wantErr:           false,
+			checkErrorType:    false,
+			expectedErrorType: nil,
+		},
+		{
+			name: "get correct daemonset age 5h",
+			args: args{
+				k8sClients: KubernetesClients{
+					AppsV1: &TypedAppsV1Client_mock{
+						daemonsets: &daemonsets_mock{
+							list: &appsv1.DaemonSetList{
+								Items: []appsv1.DaemonSet{
+									{
+										ObjectMeta: metav1.ObjectMeta{
+											CreationTimestamp: metav1.Time{
+												Time: now.Add(-10 * time.Hour),
+											},
+										},
+									},
+									{
+										ObjectMeta: metav1.ObjectMeta{
+											CreationTimestamp: metav1.Time{
+												Time: now.Add(-5 * time.Hour),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+					Name: "testing",
+				}},
+			},
+			expectedAge:       ResourceAge(18000),
+			wantErr:           false,
+			checkErrorType:    false,
+			expectedErrorType: nil,
+		},
+		{
+			name: "empty daemonset list - expect error",
+			args: args{
+				k8sClients: KubernetesClients{
+					AppsV1: &TypedAppsV1Client_mock{
+						daemonsets: &daemonsets_mock{
+							list: &appsv1.DaemonSetList{
+								Items: []appsv1.DaemonSet{},
+							},
+						},
+					},
+				},
+				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+					Name: "testing",
+				}},
+			},
+			expectedAge:       ResourceAge(-1),
+			wantErr:           true,
+			checkErrorType:    true,
+			expectedErrorType: ErrEmptyK8sResourceList,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			cancel()
+
+			got, err := YoungestDaemonsetAge(ctx, tt.args.k8sClients, tt.args.namespace)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("YoungestDaemonsetAge() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr && tt.checkErrorType {
+				if !errors.Is(err, tt.expectedErrorType) {
+					t.Errorf(
+						"got error type = %v, expected error type = %v, got err msg=\"%s\", expected err msg=\"%s\"",
+						reflect.TypeOf(err), reflect.TypeOf(tt.expectedErrorType), err, tt.expectedErrorType,
+					)
+					return
+				}
+			}
+			if got != tt.expectedAge {
+				t.Errorf("YoungestDaemonsetAge() = %v, want %v", got, tt.expectedAge)
 			}
 		})
 	}
