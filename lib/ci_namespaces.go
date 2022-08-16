@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	typedappsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
@@ -195,6 +196,20 @@ func YoungestDaemonsetAge(ctx context.Context, k8sClients KubernetesClients, nam
 	}
 
 	return getYoungestItemsResourceAge(daemonsets.Items, creationTimestampGetter)
+}
+
+func YoungestCronjobAge(ctx context.Context, k8sClients KubernetesClients, namespace v1.Namespace) (ResourceAge, error) {
+	cronjobsClient := k8sClients.BatchV1.CronJobs(namespace.ObjectMeta.Name)
+	cronjobs, err := cronjobsClient.List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return -1, fmt.Errorf("unable to list cronjobs (k8s appsv1 cronjob client): %s", err)
+	}
+
+	creationTimestampGetter := func(item batchv1.CronJob) metav1.Time {
+		return item.ObjectMeta.CreationTimestamp
+	}
+
+	return getYoungestItemsResourceAge(cronjobs.Items, creationTimestampGetter)
 }
 
 func getYoungestItemsResourceAge[item any](items []item, creationTimestampGetter func(item) metav1.Time) (ResourceAge, error) {

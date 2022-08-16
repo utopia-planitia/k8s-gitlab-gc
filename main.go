@@ -73,5 +73,6 @@ func getDefaultResourceAgeFuncs() []gc.YoungestResourceAgeFunc {
 		gc.YoungestDeploymentAge,
 		gc.YoungestStatefulsetAge,
 		gc.YoungestDaemonsetAge,
+		gc.YoungestCronjobAge,
 	}
 }
