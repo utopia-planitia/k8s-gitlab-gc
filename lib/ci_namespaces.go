@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	typedappsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
@@ -166,6 +167,20 @@ func YoungestDeploymentAge(ctx context.Context, k8sClients KubernetesClients, na
 	}
 
 	return getYoungestItemsResourceAge(deployments.Items, creationTimestampGetter)
+}
+
+func YoungestStatefulsetAge(ctx context.Context, k8sClients KubernetesClients, namespace v1.Namespace) (ResourceAge, error) {
+	statefulsetClient := k8sClients.AppsV1.StatefulSets(namespace.ObjectMeta.Name)
+	statefulsets, err := statefulsetClient.List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return -1, fmt.Errorf("unable to list statefulsets (k8s appsv1 statefulset client): %s", err)
+	}
+
+	creationTimestampGetter := func(item appsv1.StatefulSet) metav1.Time {
+		return item.ObjectMeta.CreationTimestamp
+	}
+
+	return getYoungestItemsResourceAge(statefulsets.Items, creationTimestampGetter)
 }
 
 func getYoungestItemsResourceAge[item any](items []item, creationTimestampGetter func(item) metav1.Time) (ResourceAge, error) {

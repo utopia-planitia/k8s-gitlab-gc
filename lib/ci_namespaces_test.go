@@ -211,7 +211,8 @@ func (c *pods_mock) ProxyGet(scheme, name, port, path string, params map[string]
 }
 
 type TypedAppsV1Client_mock struct { //mock CoreV1Interface
-	deployments typedappsv1.DeploymentInterface //add setter func?
+	deployments  typedappsv1.DeploymentInterface //add setter func?
+	statefulsets typedappsv1.StatefulSetInterface
 }
 
 func (c *TypedAppsV1Client_mock) RESTClient() rest.Interface {
@@ -230,7 +231,7 @@ func (c *TypedAppsV1Client_mock) ReplicaSets(namespace string) typedappsv1.Repli
 	panic("mocked ReplicaSets not implemented")
 }
 func (c *TypedAppsV1Client_mock) StatefulSets(namespace string) typedappsv1.StatefulSetInterface {
-	panic("mocked StatefulSets not implemented")
+	return c.statefulsets
 }
 
 type deployments_mock struct {
@@ -278,6 +279,54 @@ func (d *deployments_mock) UpdateScale(ctx context.Context, deploymentName strin
 	panic("mocked UpdateScale not implemented")
 }
 func (d *deployments_mock) ApplyScale(ctx context.Context, deploymentName string, scale *applyconfigurationsautoscalingv1.ScaleApplyConfiguration, opts metav1.ApplyOptions) (*autoscalingv1.Scale, error) {
+	panic("mocked ApplyScale not implemented")
+}
+
+type statefulsets_mock struct {
+	list            *appsv1.StatefulSetList
+	returnListError error
+}
+
+func (*statefulsets_mock) Create(ctx context.Context, statefulSet *appsv1.StatefulSet, opts metav1.CreateOptions) (*appsv1.StatefulSet, error) {
+	panic("mocked Create not implemented")
+}
+func (*statefulsets_mock) Update(ctx context.Context, statefulSet *appsv1.StatefulSet, opts metav1.UpdateOptions) (*appsv1.StatefulSet, error) {
+	panic("mocked Update not implemented")
+}
+func (*statefulsets_mock) UpdateStatus(ctx context.Context, statefulSet *appsv1.StatefulSet, opts metav1.UpdateOptions) (*appsv1.StatefulSet, error) {
+	panic("mocked UpdateStatus not implemented")
+}
+func (*statefulsets_mock) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+	panic("mocked Delete not implemented")
+}
+func (*statefulsets_mock) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
+	panic("mocked DeleteCollection not implemented")
+}
+func (*statefulsets_mock) Get(ctx context.Context, name string, opts metav1.GetOptions) (*appsv1.StatefulSet, error) {
+	panic("mocked Get not implemented")
+}
+func (s *statefulsets_mock) List(ctx context.Context, opts metav1.ListOptions) (*appsv1.StatefulSetList, error) {
+	return s.list, s.returnListError
+}
+func (*statefulsets_mock) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+	panic("mocked Watch not implemented")
+}
+func (*statefulsets_mock) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *appsv1.StatefulSet, err error) {
+	panic("mocked Patch not implemented")
+}
+func (*statefulsets_mock) Apply(ctx context.Context, statefulSet *confappsv1.StatefulSetApplyConfiguration, opts metav1.ApplyOptions) (result *appsv1.StatefulSet, err error) {
+	panic("mocked Apply not implemented")
+}
+func (*statefulsets_mock) ApplyStatus(ctx context.Context, statefulSet *confappsv1.StatefulSetApplyConfiguration, opts metav1.ApplyOptions) (result *appsv1.StatefulSet, err error) {
+	panic("mocked ApplyStatus not implemented")
+}
+func (*statefulsets_mock) GetScale(ctx context.Context, statefulSetName string, options metav1.GetOptions) (*autoscalingv1.Scale, error) {
+	panic("mocked GetScale not implemented")
+}
+func (*statefulsets_mock) UpdateScale(ctx context.Context, statefulSetName string, scale *autoscalingv1.Scale, opts metav1.UpdateOptions) (*autoscalingv1.Scale, error) {
+	panic("mocked UpdateScale not implemented")
+}
+func (*statefulsets_mock) ApplyScale(ctx context.Context, statefulSetName string, scale *applyconfigurationsautoscalingv1.ScaleApplyConfiguration, opts metav1.ApplyOptions) (*autoscalingv1.Scale, error) {
 	panic("mocked ApplyScale not implemented")
 }
 
@@ -1190,6 +1239,157 @@ func TestYoungestDeploymentAge(t *testing.T) {
 			}
 			if got != tt.expectedAge {
 				t.Errorf("YoungestDeploymentAge() = %v, want %v", got, tt.expectedAge)
+			}
+		})
+	}
+}
+
+func TestYoungestStatefulsetAge(t *testing.T) {
+	now := time.Now()
+
+	type args struct {
+		k8sClients KubernetesClients
+		namespace  v1.Namespace
+	}
+	tests := []struct {
+		name              string
+		args              args
+		expectedAge       ResourceAge
+		wantErr           bool
+		checkErrorType    bool
+		expectedErrorType error
+	}{
+		// TODO: Add test cases.
+		{
+			name: "expect list error (from k8s client side)",
+			args: args{
+				k8sClients: KubernetesClients{
+					AppsV1: &TypedAppsV1Client_mock{
+						statefulsets: &statefulsets_mock{
+							list: &appsv1.StatefulSetList{
+								Items: []appsv1.StatefulSet{},
+							},
+							returnListError: errors.New("pseudo random k8s appsv1 statefulsets list error"),
+						},
+					},
+				},
+				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+					Name: "testing",
+				}},
+			},
+			expectedAge:       ResourceAge(-1),
+			wantErr:           true,
+			checkErrorType:    false,
+			expectedErrorType: nil,
+		},
+		{
+			name: "get correct statefulset age 10h",
+			args: args{
+				k8sClients: KubernetesClients{
+					AppsV1: &TypedAppsV1Client_mock{
+						statefulsets: &statefulsets_mock{
+							list: &appsv1.StatefulSetList{
+								Items: []appsv1.StatefulSet{
+									{
+										ObjectMeta: metav1.ObjectMeta{
+											CreationTimestamp: metav1.Time{
+												Time: now.Add(-10 * time.Hour),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+					Name: "testing",
+				}},
+			},
+			expectedAge:       ResourceAge(36000),
+			wantErr:           false,
+			checkErrorType:    false,
+			expectedErrorType: nil,
+		},
+		{
+			name: "get correct statefulset age 5h",
+			args: args{
+				k8sClients: KubernetesClients{
+					AppsV1: &TypedAppsV1Client_mock{
+						statefulsets: &statefulsets_mock{
+							list: &appsv1.StatefulSetList{
+								Items: []appsv1.StatefulSet{
+									{
+										ObjectMeta: metav1.ObjectMeta{
+											CreationTimestamp: metav1.Time{
+												Time: now.Add(-10 * time.Hour),
+											},
+										},
+									},
+									{
+										ObjectMeta: metav1.ObjectMeta{
+											CreationTimestamp: metav1.Time{
+												Time: now.Add(-5 * time.Hour),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+					Name: "testing",
+				}},
+			},
+			expectedAge:       ResourceAge(18000),
+			wantErr:           false,
+			checkErrorType:    false,
+			expectedErrorType: nil,
+		},
+		{
+			name: "empty statefulset list - expect error",
+			args: args{
+				k8sClients: KubernetesClients{
+					AppsV1: &TypedAppsV1Client_mock{
+						statefulsets: &statefulsets_mock{
+							list: &appsv1.StatefulSetList{
+								Items: []appsv1.StatefulSet{},
+							},
+						},
+					},
+				},
+				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+					Name: "testing",
+				}},
+			},
+			expectedAge:       ResourceAge(-1),
+			wantErr:           true,
+			checkErrorType:    true,
+			expectedErrorType: ErrEmptyK8sResourceList,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			cancel()
+
+			got, err := YoungestStatefulsetAge(ctx, tt.args.k8sClients, tt.args.namespace)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("YoungestStatefulsetAge() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr && tt.checkErrorType {
+				if !errors.Is(err, tt.expectedErrorType) {
+					t.Errorf(
+						"got error type = %v, expected error type = %v, got err msg=\"%s\", expected err msg=\"%s\"",
+						reflect.TypeOf(err), reflect.TypeOf(tt.expectedErrorType), err, tt.expectedErrorType,
+					)
+					return
+				}
+			}
+			if got != tt.expectedAge {
+				t.Errorf("YoungestStatefulsetAge() = %v, want %v", got, tt.expectedAge)
 			}
 		})
 	}
