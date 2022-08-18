@@ -154,6 +154,23 @@ func YoungestPodAge(ctx context.Context, k8sClients KubernetesClients, namespace
 	return ResourceAge(youngestResourceAge), nil
 }
 
+func getYoungestItemsResourceAge[item any](items []item, creationTimestampGetter func(item) metav1.Time) (ResourceAge, error) {
+	if len(items) == 0 {
+		return -1, ErrEmptyK8sResourceList
+	}
+
+	youngestResourceAge := age(creationTimestampGetter(items[0]))
+	for _, item := range items {
+		age := age(creationTimestampGetter(item))
+
+		if age < int64(youngestResourceAge) {
+			youngestResourceAge = age
+		}
+	}
+
+	return ResourceAge(youngestResourceAge), nil
+}
+
 func hasOptedOut(annotations map[string]string, optOutAnnotations []string) bool {
 	for _, optOutAnnotation := range optOutAnnotations {
 		optOut, ok := annotations[optOutAnnotation]

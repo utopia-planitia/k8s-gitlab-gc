@@ -720,6 +720,86 @@ func Test_namespaceAge(t *testing.T) {
 	}
 }
 
+func TestYoungestItemsResourceAge(t *testing.T) {
+	now := time.Now()
+
+	type testType struct {
+		ts metav1.Time
+	}
+
+	type args struct {
+		Items                   []testType
+		creationTimestampGetter func(testType) metav1.Time
+	}
+
+	tests := []struct {
+		name              string
+		args              args
+		expectedAge       ResourceAge
+		wantErr           bool
+		checkErrorType    bool
+		expectedErrorType error
+	}{
+		{
+			name: "get correct age 5h",
+			args: args{
+				Items: []testType{
+					{
+						ts: metav1.NewTime(now.Add(-5 * time.Hour)),
+					},
+					{
+						ts: metav1.NewTime(now.Add(-10 * time.Hour)),
+					},
+				},
+				creationTimestampGetter: func(item testType) metav1.Time {
+					return item.ts
+				},
+			},
+
+			expectedAge:       ResourceAge(18000),
+			wantErr:           false,
+			checkErrorType:    false,
+			expectedErrorType: nil,
+		},
+		{
+			name: "empty list - expect error",
+			args: args{
+				Items: []testType{},
+				creationTimestampGetter: func(item testType) metav1.Time {
+					return item.ts
+				},
+			},
+
+			expectedAge:       ResourceAge(-1),
+			wantErr:           true,
+			checkErrorType:    true,
+			expectedErrorType: ErrEmptyK8sResourceList,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			got, err := getYoungestItemsResourceAge(tt.args.Items, tt.args.creationTimestampGetter)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("YoungestItemsResourceAge() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr && tt.checkErrorType {
+				if !errors.Is(err, tt.expectedErrorType) {
+					t.Errorf(
+						"got error type = %v, expected error type = %v, got err msg=\"%s\", expected err msg=\"%s\"",
+						reflect.TypeOf(err), reflect.TypeOf(tt.expectedErrorType), err, tt.expectedErrorType,
+					)
+					return
+				}
+			}
+			if got != tt.expectedAge {
+				t.Errorf("YoungestItemsResourceAge() = %v, want %v", got, tt.expectedAge)
+			}
+		})
+	}
+}
+
 func Test_youngestPodAge(t *testing.T) {
 	now := time.Now()
 	type args struct {
