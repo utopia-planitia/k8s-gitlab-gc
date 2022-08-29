@@ -230,6 +230,7 @@ func newGcJob(namespace string, name string, image string) *batchv1.Job {
 								"-maxReviewNamespaceAge=300",
 								"-maxBuildNamespaceAge=15",
 								fmt.Sprintf("-gitlabRunnerNamespace=%s", namespace),
+								fmt.Sprintf("-onlyUseAgesOf=%s", "namespace,pod"),
 							},
 						},
 					},

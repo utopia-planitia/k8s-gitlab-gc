@@ -13,6 +13,19 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+var availableAgesFuncsMap = map[string]gc.YoungestResourceAgeFunc{
+	"namespace":   gc.NamespaceAge,
+	"pod":         gc.YoungestPodAge,
+	"deployment":  gc.YoungestDeploymentAge,
+	"statefulset": gc.YoungestStatefulsetAge,
+	"daemonset":   gc.YoungestDaemonsetAge,
+	"cronjob":     gc.YoungestCronjobAge,
+}
+
+var defaultResourceAgeFuncs = []gc.YoungestResourceAgeFunc{
+	gc.NamespaceAge,
+}
+
 func main() {
 	var dryRun = flag.Bool("dry-run", false, "execute in dry-run mode - no changes will be applied")
 	var kubeconfig = flag.String("kubeconfig", "", "(optional) absolute path to the kubeconfig file")
@@ -22,6 +35,8 @@ func main() {
 	var maxReviewNamespaceAge = flag.Int64("maxReviewNamespaceAge", 60*60*24*2, "max age for review namespaces in seconds")
 	var maxBuildNamespaceAge = flag.Int64("maxBuildNamespaceAge", 60*60*2, "max age for e2e testing namespaces in seconds")
 	var optOutAnnotations = flag.String("optOutAnnotations", "disable-automatic-garbage-collection", "comma separated list of annotations to protect namespaces from deletion, annotations need to be set to the string 'true'")
+	var onlyUseAgesOf = flag.String("onlyUseAgesOf", "", fmt.Sprintf("comma separated list of kubernetes resources to use for age evaluation: \"%s\"", strings.Join(keysFrom(availableAgesFuncsMap), ",")))
+
 	flag.Parse()
 
 	log.Printf("dryRun: %v\n", *dryRun)
@@ -32,6 +47,12 @@ func main() {
 	log.Printf("maxReviewNamespaceAge: %v\n", *maxReviewNamespaceAge)
 	log.Printf("maxBuildNamespaceAge: %v\n", *maxBuildNamespaceAge)
 	log.Printf("optOutAnnotations: %v\n", *optOutAnnotations)
+	log.Printf("onlyUseAgesOf: %v\n", *onlyUseAgesOf)
+
+	selectedAgesFuncs, err := selectResourceAgeFuncs(*onlyUseAgesOf, availableAgesFuncsMap)
+	if err != nil {
+		log.Fatalf("couldn't validate 'onlyUseAgesOf' flag: %s", err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
@@ -52,7 +73,7 @@ func main() {
 		BatchV1: k8s.BatchV1(),
 	}
 
-	err = gc.ContinuousIntegrationNamespaces(ctx, k8sClients, getDefaultResourceAgeFuncs(), strings.Split(*protectedBranches, ","), strings.Split(*optOutAnnotations, ","), *maxBuildNamespaceAge, *maxReviewNamespaceAge, *dryRun)
+	err = gc.ContinuousIntegrationNamespaces(ctx, k8sClients, selectedAgesFuncs, strings.Split(*protectedBranches, ","), strings.Split(*optOutAnnotations, ","), *maxBuildNamespaceAge, *maxReviewNamespaceAge, *dryRun)
 	if err != nil {
 		log.Fatalf("failed to clean up ci namespaces: %s", err)
 	}
@@ -66,13 +87,31 @@ func provideKubernetesClient(kubeconfig string) (*kubernetes.Clientset, error) {
 	return kubernetes.NewForConfig(k8sConfig)
 }
 
-func getDefaultResourceAgeFuncs() []gc.YoungestResourceAgeFunc {
-	return []gc.YoungestResourceAgeFunc{
-		gc.NamespaceAge,
-		gc.YoungestPodAge,
-		gc.YoungestDeploymentAge,
-		gc.YoungestStatefulsetAge,
-		gc.YoungestDaemonsetAge,
-		gc.YoungestCronjobAge,
+func selectResourceAgeFuncs(onlyUseAgesOf string, ageFuncsMap map[string]gc.YoungestResourceAgeFunc) ([]gc.YoungestResourceAgeFunc, error) {
+	if onlyUseAgesOf == "" {
+		return defaultResourceAgeFuncs, nil
 	}
+
+	onlyUseAgesOfList := strings.Split(onlyUseAgesOf, ",")
+
+	selectedFuncs := []gc.YoungestResourceAgeFunc{}
+	for _, maybeKey := range onlyUseAgesOfList {
+		ageFn, ok := ageFuncsMap[maybeKey]
+		if !ok {
+			validKeys := keysFrom(ageFuncsMap)
+			return []gc.YoungestResourceAgeFunc{}, fmt.Errorf("the passed key \"%s\" is not a valid key, valid options are: \"%s\"", maybeKey, strings.Join(validKeys, ","))
+		}
+
+		selectedFuncs = append(selectedFuncs, ageFn)
+	}
+
+	return selectedFuncs, nil
+}
+
+func keysFrom(ageFuncsMap map[string]gc.YoungestResourceAgeFunc) []string {
+	validKeys := []string{}
+	for key := range ageFuncsMap {
+		validKeys = append(validKeys, key)
+	}
+	return validKeys
 }
