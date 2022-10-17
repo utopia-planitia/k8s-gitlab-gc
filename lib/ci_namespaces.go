@@ -2,9 +2,7 @@ package gc
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"math"
 	"regexp"
 	"strings"
 
@@ -12,45 +10,29 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	typedappsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
-	typedbatchv1 "k8s.io/client-go/kubernetes/typed/batch/v1"
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
-type KubernetesClients struct {
-	CoreV1  corev1.CoreV1Interface
-	AppsV1  typedappsv1.AppsV1Interface
-	BatchV1 typedbatchv1.BatchV1Interface
-}
-
 type ResourceAge int64
-type YoungestResourceAgeFunc func(ctx context.Context, k8sClients KubernetesClients, namespace v1.Namespace) (ResourceAge, error)
+type YoungestResourceAgeFunc func(ctx context.Context, k8sClients KubernetesAPI) (ResourceAge, bool, error)
 
-var ErrEmptyK8sResourceList error = errors.New("emptyK8sResourceList")
-var ErrEmptyFnList error = errors.New("no ageFn functions in list provided")
-var ErrNoAges error = errors.New("couldn't get a single resource age from ageFns")
-
-func youngestAge(ctx context.Context, ageFuncs []YoungestResourceAgeFunc, k8sClients KubernetesClients, namespace v1.Namespace) (ResourceAge, error) {
-	if len(ageFuncs) == 0 {
-		return ResourceAge(0), ErrEmptyFnList
-	}
-
+func youngestAge(ctx context.Context, ageFuncs []YoungestResourceAgeFunc, api KubernetesAPI) (ResourceAge, bool, error) {
 	ages := []ResourceAge{}
 	for _, ageFn := range ageFuncs {
-		age, err := ageFn(ctx, k8sClients, namespace)
+		age, found, err := ageFn(ctx, api)
 		if err != nil {
-			// when we got a namespace with no pods
-			if errors.Is(err, ErrEmptyK8sResourceList) {
-				continue
-			}
-			return -1, fmt.Errorf("%s", err)
+			return 0, false, err
+		}
+
+		if !found {
+			continue
 		}
 
 		ages = append(ages, age)
 	}
 
 	if len(ages) == 0 {
-		return ResourceAge(0), ErrNoAges
+		return 0, false, nil
 	}
 
 	youngestResourceAge := ages[0]
@@ -60,161 +42,178 @@ func youngestAge(ctx context.Context, ageFuncs []YoungestResourceAgeFunc, k8sCli
 		}
 	}
 
-	return ResourceAge(youngestResourceAge), nil
+	return ResourceAge(youngestResourceAge), true, nil
 }
 
 // ContinuousIntegrationNamespaces removes no longer used namespaces
-func ContinuousIntegrationNamespaces(ctx context.Context, k8sClients KubernetesClients, ageFuncs []YoungestResourceAgeFunc, protectedBranches, optOutAnnotations []string, maxTestingAge, maxReviewAge int64, dryRun bool) error {
-	corev1Client := k8sClients.CoreV1
-	namespaces := corev1Client.Namespaces()
+func ContinuousIntegrationNamespaces(
+	ctx context.Context,
+	clientset *kubernetes.Clientset,
+	ageFuncs []YoungestResourceAgeFunc,
+	protectedBranches,
+	optOutAnnotations []string,
+	maxTestingAge,
+	maxReviewAge int64,
+	dryRun bool,
+) error {
+	namespaces := clientset.CoreV1().Namespaces()
 	nss, err := namespaces.List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
 
-	if len(nss.Items) == 0 {
-		return nil
-	}
-
 	for _, ns := range nss.Items {
-		if isTerminating(ns) {
-			continue
+		api := &KubernetesClient{
+			namespace: ns,
+			clientset: clientset,
 		}
 
-		name := ns.ObjectMeta.Name
-
-		if isProtected(name, protectedBranches) {
-			continue
-		}
-
-		if !isCI(name) {
-			continue
-		}
-
-		if hasOptedOut(ns.ObjectMeta.Annotations, optOutAnnotations) {
-			continue
-		}
-
-		isHashbased, err := isHashbased(name)
-		if err != nil {
-			return fmt.Errorf("failed to check for hash based namespace '%s': %s", name, err)
-		}
-
-		maxAge := maxReviewAge
-		if isHashbased {
-			maxAge = maxTestingAge
-		}
-
-		age, err := youngestAge(ctx, ageFuncs, k8sClients, ns)
+		delete, err := shouldDeleteNamespace(
+			ctx,
+			api,
+			ageFuncs,
+			protectedBranches,
+			optOutAnnotations,
+			maxTestingAge,
+			maxReviewAge,
+		)
 		if err != nil {
 			return err
 		}
 
-		if int64(age) < maxAge {
-			continue
-		}
+		if delete {
+			name := ns.ObjectMeta.Name
 
-		fmt.Printf("deleting namespace: %s, age: %d, maxAge: %d, ageInHours: %d, ageInDays: %d\n", name, age, maxAge, age/60/60, age/60/60/24)
+			fmt.Printf("deleting namespace: %s\n", name)
 
-		if dryRun {
-			continue
-		}
+			if dryRun {
+				continue
+			}
 
-		err = namespaces.Delete(ctx, name, metav1.DeleteOptions{})
-		if err != nil {
-			return err
+			err := clientset.CoreV1().Namespaces().Delete(ctx, name, metav1.DeleteOptions{})
+			if err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
 }
 
-func NamespaceAge(_ context.Context, _ KubernetesClients, namespace v1.Namespace) (ResourceAge, error) {
-	return ResourceAge(age(namespace.ObjectMeta.CreationTimestamp)), nil
+func shouldDeleteNamespace(
+	ctx context.Context,
+	api KubernetesAPI,
+	ageFuncs []YoungestResourceAgeFunc,
+	protectedBranches,
+	optOutAnnotations []string,
+	maxTestingAge,
+	maxReviewAge int64,
+) (bool, error) {
+	ns := api.Namespace()
+
+	if isTerminating(ns) {
+		return false, nil
+	}
+
+	name := ns.ObjectMeta.Name
+
+	if isProtected(name, protectedBranches) {
+		return false, nil
+	}
+
+	if !isCI(name) {
+		return false, nil
+	}
+
+	if hasOptedOut(ns.ObjectMeta.Annotations, optOutAnnotations) {
+		return false, nil
+	}
+
+	isHashbased, err := isHashbased(name)
+	if err != nil {
+		return false, fmt.Errorf("failed to check for hash based namespace '%s': %v", name, err)
+	}
+
+	maxAge := maxReviewAge
+	if isHashbased {
+		maxAge = maxTestingAge
+	}
+
+	age, found, err := youngestAge(ctx, ageFuncs, api)
+	if err != nil {
+		return false, err
+	}
+
+	if !found {
+		return false, fmt.Errorf("no item with an age was found - this should not happen")
+	}
+
+	if int64(age) < maxAge {
+		return false, nil
+	}
+
+	return true, nil
 }
 
-func YoungestPodAge(ctx context.Context, k8sClients KubernetesClients, namespace v1.Namespace) (ResourceAge, error) {
-	podsClient := k8sClients.CoreV1.Pods(namespace.ObjectMeta.Name)
-	pods, err := podsClient.List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return -1, err
-	}
-
-	if len(pods.Items) == 0 {
-		return -1, ErrEmptyK8sResourceList
-	}
-
-	youngestResourceAge := int64(math.MaxInt64)
-	for _, pod := range pods.Items {
-		age := age(pod.ObjectMeta.CreationTimestamp)
-
-		if age < int64(youngestResourceAge) {
-			youngestResourceAge = age
-		}
-	}
-
-	return ResourceAge(youngestResourceAge), nil
+func NamespaceAge(_ context.Context, api KubernetesAPI) (ResourceAge, bool, error) {
+	return ResourceAge(age(api.Namespace().ObjectMeta.CreationTimestamp)), true, nil
 }
 
-func YoungestDeploymentAge(ctx context.Context, k8sClients KubernetesClients, namespace v1.Namespace) (ResourceAge, error) {
-	deploymentClient := k8sClients.AppsV1.Deployments(namespace.ObjectMeta.Name)
-	deployments, err := deploymentClient.List(ctx, metav1.ListOptions{})
+func YoungestDeploymentAge(ctx context.Context, api KubernetesAPI) (ResourceAge, bool, error) {
+	deployments, err := api.Deployments(ctx)
 	if err != nil {
-		return -1, fmt.Errorf("unable to list deployments (k8s appsv1 deployment client): %s", err)
+		return 0, false, fmt.Errorf("unable to list deployments (k8s appsv1 deployment client): %v", err)
 	}
 
 	creationTimestampGetter := func(item appsv1.Deployment) metav1.Time {
 		return item.ObjectMeta.CreationTimestamp
 	}
 
-	return getYoungestItemsResourceAge(deployments.Items, creationTimestampGetter)
+	return getYoungestItemsResourceAge(deployments, creationTimestampGetter)
 }
 
-func YoungestStatefulsetAge(ctx context.Context, k8sClients KubernetesClients, namespace v1.Namespace) (ResourceAge, error) {
-	statefulsetClient := k8sClients.AppsV1.StatefulSets(namespace.ObjectMeta.Name)
-	statefulsets, err := statefulsetClient.List(ctx, metav1.ListOptions{})
+func YoungestStatefulsetAge(ctx context.Context, api KubernetesAPI) (ResourceAge, bool, error) {
+	statefulsets, err := api.StatefulSets(ctx)
 	if err != nil {
-		return -1, fmt.Errorf("unable to list statefulsets (k8s appsv1 statefulset client): %s", err)
+		return 0, false, fmt.Errorf("unable to list statefulsets (k8s appsv1 statefulset client): %v", err)
 	}
 
 	creationTimestampGetter := func(item appsv1.StatefulSet) metav1.Time {
 		return item.ObjectMeta.CreationTimestamp
 	}
 
-	return getYoungestItemsResourceAge(statefulsets.Items, creationTimestampGetter)
+	return getYoungestItemsResourceAge(statefulsets, creationTimestampGetter)
 }
 
-func YoungestDaemonsetAge(ctx context.Context, k8sClients KubernetesClients, namespace v1.Namespace) (ResourceAge, error) {
-	daemonsetsClient := k8sClients.AppsV1.DaemonSets(namespace.ObjectMeta.Name)
-	daemonsets, err := daemonsetsClient.List(ctx, metav1.ListOptions{})
+func YoungestDaemonsetAge(ctx context.Context, api KubernetesAPI) (ResourceAge, bool, error) {
+	daemonsets, err := api.DaemonSets(ctx)
 	if err != nil {
-		return -1, fmt.Errorf("unable to list daemonsets (k8s appsv1 daemonset client): %s", err)
+		return 0, false, fmt.Errorf("unable to list daemonsets (k8s appsv1 daemonset client): %v", err)
 	}
 
 	creationTimestampGetter := func(item appsv1.DaemonSet) metav1.Time {
 		return item.ObjectMeta.CreationTimestamp
 	}
 
-	return getYoungestItemsResourceAge(daemonsets.Items, creationTimestampGetter)
+	return getYoungestItemsResourceAge(daemonsets, creationTimestampGetter)
 }
 
-func YoungestCronjobAge(ctx context.Context, k8sClients KubernetesClients, namespace v1.Namespace) (ResourceAge, error) {
-	cronjobsClient := k8sClients.BatchV1.CronJobs(namespace.ObjectMeta.Name)
-	cronjobs, err := cronjobsClient.List(ctx, metav1.ListOptions{})
+func YoungestCronjobAge(ctx context.Context, api KubernetesAPI) (ResourceAge, bool, error) {
+	cronjobs, err := api.CronJobs(ctx)
 	if err != nil {
-		return -1, fmt.Errorf("unable to list cronjobs (k8s appsv1 cronjob client): %s", err)
+		return 0, false, fmt.Errorf("unable to list cronjobs (k8s appsv1 cronjob client): %v", err)
 	}
 
 	creationTimestampGetter := func(item batchv1.CronJob) metav1.Time {
 		return item.ObjectMeta.CreationTimestamp
 	}
 
-	return getYoungestItemsResourceAge(cronjobs.Items, creationTimestampGetter)
+	return getYoungestItemsResourceAge(cronjobs, creationTimestampGetter)
 }
 
-func getYoungestItemsResourceAge[item any](items []item, creationTimestampGetter func(item) metav1.Time) (ResourceAge, error) {
+func getYoungestItemsResourceAge[item any](items []item, creationTimestampGetter func(item) metav1.Time) (ResourceAge, bool, error) {
 	if len(items) == 0 {
-		return -1, ErrEmptyK8sResourceList
+		return 0, false, nil
 	}
 
 	youngestResourceAge := age(creationTimestampGetter(items[0]))
@@ -226,7 +225,7 @@ func getYoungestItemsResourceAge[item any](items []item, creationTimestampGetter
 		}
 	}
 
-	return ResourceAge(youngestResourceAge), nil
+	return ResourceAge(youngestResourceAge), true, nil
 }
 
 func hasOptedOut(annotations map[string]string, optOutAnnotations []string) bool {

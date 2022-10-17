@@ -47,7 +47,7 @@ func main() {
 
 	selectedAgesFuncs, err := selectResourceAgeFuncs(*onlyUseAgesOf, availableAgesFuncsMap)
 	if err != nil {
-		log.Fatalf("couldn't validate 'onlyUseAgesOf' flag: %s", err)
+		log.Fatalf("couldn't validate 'onlyUseAgesOf' flag: %v", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
@@ -55,23 +55,17 @@ func main() {
 
 	k8s, err := provideKubernetesClient(*kubeconfig)
 	if err != nil {
-		log.Fatalf("failed initilize kubernetes client: %s", err)
+		log.Fatalf("failed initilize kubernetes client: %v", err)
 	}
 
 	err = gc.GitlabExecutors(ctx, k8s.CoreV1().Pods(*gitlabRunnerNamespace), *maxGitlabExecutorAge, *dryRun)
 	if err != nil {
-		log.Fatalf("failed to clean up gitlab executors: %s", err)
-	}
-
-	k8sClients := gc.KubernetesClients{
-		CoreV1:  k8s.CoreV1(),
-		AppsV1:  k8s.AppsV1(),
-		BatchV1: k8s.BatchV1(),
+		log.Fatalf("failed to clean up gitlab executors: %v", err)
 	}
 
 	err = gc.ContinuousIntegrationNamespaces(
 		ctx,
-		k8sClients,
+		k8s,
 		selectedAgesFuncs,
 		strings.Split(*protectedBranches, ","),
 		strings.Split(*optOutAnnotations, ","),
@@ -80,14 +74,14 @@ func main() {
 		*dryRun,
 	)
 	if err != nil {
-		log.Fatalf("failed to clean up ci namespaces: %s", err)
+		log.Fatalf("failed to clean up ci namespaces: %v", err)
 	}
 }
 
 func provideKubernetesClient(kubeconfig string) (*kubernetes.Clientset, error) {
 	k8sConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse kubernetes configuration: %s", err)
+		return nil, fmt.Errorf("failed to parse kubernetes configuration: %v", err)
 	}
 	return kubernetes.NewForConfig(k8sConfig)
 }

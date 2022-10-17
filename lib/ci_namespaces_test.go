@@ -3,28 +3,54 @@ package gc
 import (
 	"context"
 	"errors"
-	"reflect"
 	"testing"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
-	policyv1 "k8s.io/api/policy/v1"
-	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	confappsv1 "k8s.io/client-go/applyconfigurations/apps/v1"
-	applyconfigurationsautoscalingv1 "k8s.io/client-go/applyconfigurations/autoscaling/v1"
-	applyconfigurationsbatchv1 "k8s.io/client-go/applyconfigurations/batch/v1"
-	corev1 "k8s.io/client-go/applyconfigurations/core/v1"
-	typedappsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
-	typedbatchv1 "k8s.io/client-go/kubernetes/typed/batch/v1"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/rest"
 )
+
+type KubernetesAPIMock struct {
+	pods             []v1.Pod
+	deployments      []appsv1.Deployment
+	statefulSet      []appsv1.StatefulSet
+	daemonSet        []appsv1.DaemonSet
+	cronJobs         []batchv1.CronJob
+	namespace        v1.Namespace
+	err              error
+	namespaceDeleted bool
+}
+
+func (k *KubernetesAPIMock) Pods(ctx context.Context) ([]v1.Pod, error) {
+	return k.pods, k.err
+}
+
+func (k *KubernetesAPIMock) Deployments(ctx context.Context) ([]appsv1.Deployment, error) {
+	return k.deployments, k.err
+}
+
+func (k *KubernetesAPIMock) StatefulSets(ctx context.Context) ([]appsv1.StatefulSet, error) {
+	return k.statefulSet, k.err
+}
+
+func (k *KubernetesAPIMock) DaemonSets(ctx context.Context) ([]appsv1.DaemonSet, error) {
+	return k.daemonSet, k.err
+}
+
+func (k *KubernetesAPIMock) CronJobs(ctx context.Context) ([]batchv1.CronJob, error) {
+	return k.cronJobs, k.err
+}
+
+func (k *KubernetesAPIMock) Namespace() v1.Namespace {
+	return k.namespace
+}
+
+func (k *KubernetesAPIMock) DeleteCurrentNamespace(_ context.Context) error {
+	k.namespaceDeleted = true
+	return nil
+}
 
 var isHashbasedTests = []struct {
 	in  string
@@ -54,795 +80,70 @@ func TestIsHashbased(t *testing.T) {
 	}
 }
 
-type TypedCoreV1Client_mock struct {
-	namespaces typedcorev1.NamespaceInterface
-	pods       typedcorev1.PodInterface
-}
-
-func (c *TypedCoreV1Client_mock) RESTClient() rest.Interface {
-	panic("mocked RESTClient not implemented")
-}
-func (c *TypedCoreV1Client_mock) ComponentStatuses() typedcorev1.ComponentStatusInterface {
-	panic("mocked ComponentStatuses not implemented")
-}
-func (c *TypedCoreV1Client_mock) ConfigMaps(namespace string) typedcorev1.ConfigMapInterface {
-	panic("mocked ConfigMaps not implemented")
-}
-func (c *TypedCoreV1Client_mock) Endpoints(namespace string) typedcorev1.EndpointsInterface {
-	panic("mocked Endpoints not implemented")
-}
-func (c *TypedCoreV1Client_mock) Events(namespace string) typedcorev1.EventInterface {
-	panic("mocked Events not implemented")
-}
-func (c *TypedCoreV1Client_mock) LimitRanges(namespace string) typedcorev1.LimitRangeInterface {
-	panic("mocked LimitRanges not implemented")
-}
-func (c *TypedCoreV1Client_mock) Namespaces() typedcorev1.NamespaceInterface {
-	return c.namespaces
-}
-func (c *TypedCoreV1Client_mock) Nodes() typedcorev1.NodeInterface {
-	panic("mocked Nodes not implemented")
-}
-func (c *TypedCoreV1Client_mock) PersistentVolumes() typedcorev1.PersistentVolumeInterface {
-	panic("mocked PersistentVolumes not implemented")
-}
-func (c *TypedCoreV1Client_mock) PersistentVolumeClaims(namespace string) typedcorev1.PersistentVolumeClaimInterface {
-	panic("mocked PersistentVolumeClaims not implemented")
-}
-func (c *TypedCoreV1Client_mock) Pods(namespace string) typedcorev1.PodInterface {
-	return c.pods
-}
-func (c *TypedCoreV1Client_mock) PodTemplates(namespace string) typedcorev1.PodTemplateInterface {
-	panic("mocked PodTemplates not implemented")
-}
-func (c *TypedCoreV1Client_mock) ReplicationControllers(namespace string) typedcorev1.ReplicationControllerInterface {
-	panic("mocked ReplicationControllers not implemented")
-}
-func (c *TypedCoreV1Client_mock) ResourceQuotas(namespace string) typedcorev1.ResourceQuotaInterface {
-	panic("mocked ResourceQuotas not implemented")
-}
-func (c *TypedCoreV1Client_mock) Secrets(namespace string) typedcorev1.SecretInterface {
-	panic("mocked Secrets not implemented")
-}
-func (c *TypedCoreV1Client_mock) Services(namespace string) typedcorev1.ServiceInterface {
-	panic("mocked Services not implemented")
-}
-func (c *TypedCoreV1Client_mock) ServiceAccounts(namespace string) typedcorev1.ServiceAccountInterface {
-	panic("mocked ServiceAccounts not implemented")
-}
-
-type namespaces_mock struct {
-	list      *v1.NamespaceList
-	deletions int
-}
-
-func (c *namespaces_mock) Create(ctx context.Context, namespace *v1.Namespace, opts metav1.CreateOptions) (*v1.Namespace, error) {
-	panic("mocked Create not implemented")
-}
-func (c *namespaces_mock) Update(ctx context.Context, namespace *v1.Namespace, opts metav1.UpdateOptions) (*v1.Namespace, error) {
-	panic("mocked Update not implemented")
-}
-func (c *namespaces_mock) UpdateStatus(ctx context.Context, namespace *v1.Namespace, opts metav1.UpdateOptions) (*v1.Namespace, error) {
-	panic("mocked UpdateStatus not implemented")
-}
-func (c *namespaces_mock) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	c.deletions++
-	return nil
-}
-func (c *namespaces_mock) Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.Namespace, error) {
-	panic("mocked Get not implemented")
-}
-func (c *namespaces_mock) List(ctx context.Context, opts metav1.ListOptions) (*v1.NamespaceList, error) {
-	return c.list, nil
-}
-func (c *namespaces_mock) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	panic("mocked Watch not implemented")
-}
-func (c *namespaces_mock) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Namespace, err error) {
-	panic("mocked Patch not implemented")
-}
-func (c *namespaces_mock) Apply(ctx context.Context, namespace *corev1.NamespaceApplyConfiguration, opts metav1.ApplyOptions) (result *v1.Namespace, err error) {
-	panic("mocked Apply not implemented")
-}
-func (c *namespaces_mock) ApplyStatus(ctx context.Context, namespace *corev1.NamespaceApplyConfiguration, opts metav1.ApplyOptions) (result *v1.Namespace, err error) {
-	panic("mocked ApplyStatus not implemented")
-}
-func (c *namespaces_mock) Finalize(ctx context.Context, item *v1.Namespace, opts metav1.UpdateOptions) (*v1.Namespace, error) {
-	panic("mocked Finalize not implemented")
-}
-
-type pods_mock struct {
-	list            *v1.PodList
-	returnListError error
-}
-
-func (c *pods_mock) Create(ctx context.Context, pod *v1.Pod, opts metav1.CreateOptions) (*v1.Pod, error) {
-	panic("mocked Create not implemented")
-}
-func (c *pods_mock) Update(ctx context.Context, pod *v1.Pod, opts metav1.UpdateOptions) (*v1.Pod, error) {
-	panic("mocked Update not implemented")
-}
-func (c *pods_mock) UpdateStatus(ctx context.Context, pod *v1.Pod, opts metav1.UpdateOptions) (*v1.Pod, error) {
-	panic("mocked UpdateStatus not implemented")
-}
-func (c *pods_mock) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	panic("mocked Delete not implemented")
-}
-func (c *pods_mock) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	panic("mocked DeleteCollection not implemented")
-}
-func (c *pods_mock) Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.Pod, error) {
-	panic("mocked Get not implemented")
-}
-func (c *pods_mock) List(ctx context.Context, opts metav1.ListOptions) (*v1.PodList, error) {
-	return c.list, c.returnListError
-}
-func (c *pods_mock) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	panic("mocked Watch not implemented")
-}
-func (c *pods_mock) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Pod, err error) {
-	panic("mocked Patch not implemented")
-}
-func (c *pods_mock) Apply(ctx context.Context, pod *corev1.PodApplyConfiguration, opts metav1.ApplyOptions) (result *v1.Pod, err error) {
-	panic("mocked Apply not implemented")
-}
-func (c *pods_mock) ApplyStatus(ctx context.Context, pod *corev1.PodApplyConfiguration, opts metav1.ApplyOptions) (result *v1.Pod, err error) {
-	panic("mocked ApplyStatus not implemented")
-}
-func (c *pods_mock) UpdateEphemeralContainers(ctx context.Context, podName string, pod *v1.Pod, opts metav1.UpdateOptions) (*v1.Pod, error) {
-	panic("mocked UpdateEphemeralContainers not implemented")
-}
-func (c *pods_mock) Bind(ctx context.Context, binding *v1.Binding, opts metav1.CreateOptions) error {
-	panic("mocked Bind not implemented")
-}
-func (c *pods_mock) Evict(ctx context.Context, eviction *policyv1beta1.Eviction) error {
-	panic("mocked Evict not implemented")
-}
-func (c *pods_mock) EvictV1(ctx context.Context, eviction *policyv1.Eviction) error {
-	panic("mocked EvictV1 not implemented")
-}
-func (c *pods_mock) EvictV1beta1(ctx context.Context, eviction *policyv1beta1.Eviction) error {
-	panic("mocked EvictV1beta1 not implemented")
-}
-func (c *pods_mock) GetLogs(name string, opts *v1.PodLogOptions) *rest.Request {
-	panic("mocked GetLogs not implemented")
-}
-func (c *pods_mock) ProxyGet(scheme, name, port, path string, params map[string]string) rest.ResponseWrapper {
-	panic("mocked ProxyGet not implemented")
-}
-
-type TypedAppsV1Client_mock struct {
-	deployments  typedappsv1.DeploymentInterface
-	statefulsets typedappsv1.StatefulSetInterface
-	daemonsets   typedappsv1.DaemonSetInterface
-}
-
-func (c *TypedAppsV1Client_mock) RESTClient() rest.Interface {
-	panic("mocked RESTClient not implemented")
-}
-func (c *TypedAppsV1Client_mock) ControllerRevisions(namespace string) typedappsv1.ControllerRevisionInterface {
-	panic("mocked ControllerRevisions not implemented")
-}
-func (c *TypedAppsV1Client_mock) DaemonSets(namespace string) typedappsv1.DaemonSetInterface {
-	return c.daemonsets
-}
-func (c *TypedAppsV1Client_mock) Deployments(namespace string) typedappsv1.DeploymentInterface {
-	return c.deployments
-}
-func (c *TypedAppsV1Client_mock) ReplicaSets(namespace string) typedappsv1.ReplicaSetInterface {
-	panic("mocked ReplicaSets not implemented")
-}
-func (c *TypedAppsV1Client_mock) StatefulSets(namespace string) typedappsv1.StatefulSetInterface {
-	return c.statefulsets
-}
-
-type deployments_mock struct {
-	list            *appsv1.DeploymentList
-	returnListError error
-}
-
-func (d *deployments_mock) Create(ctx context.Context, deployment *appsv1.Deployment, opts metav1.CreateOptions) (*appsv1.Deployment, error) {
-	panic("mocked Create not implemented")
-}
-func (d *deployments_mock) Update(ctx context.Context, deployment *appsv1.Deployment, opts metav1.UpdateOptions) (*appsv1.Deployment, error) {
-	panic("mocked Update not implemented")
-}
-func (d *deployments_mock) UpdateStatus(ctx context.Context, deployment *appsv1.Deployment, opts metav1.UpdateOptions) (*appsv1.Deployment, error) {
-	panic("mocked UpdateStatus not implemented")
-}
-func (d *deployments_mock) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	panic("mocked Delete not implemented")
-}
-func (d *deployments_mock) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	panic("mocked DeleteCollection not implemented")
-}
-func (c *deployments_mock) Get(ctx context.Context, name string, opts metav1.GetOptions) (*appsv1.Deployment, error) {
-	panic("mocked Get not implemented")
-}
-func (d *deployments_mock) List(ctx context.Context, opts metav1.ListOptions) (*appsv1.DeploymentList, error) {
-	return d.list, d.returnListError
-}
-func (d *deployments_mock) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	panic("mocked Watch not implemented")
-}
-func (d *deployments_mock) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *appsv1.Deployment, err error) {
-	panic("mocked Patch not implemented")
-}
-func (d *deployments_mock) Apply(ctx context.Context, deployment *confappsv1.DeploymentApplyConfiguration, opts metav1.ApplyOptions) (result *appsv1.Deployment, err error) {
-	panic("mocked Apply not implemented")
-}
-func (d *deployments_mock) ApplyStatus(ctx context.Context, deployment *confappsv1.DeploymentApplyConfiguration, opts metav1.ApplyOptions) (result *appsv1.Deployment, err error) {
-	panic("mocked ApplyStatus not implemented")
-}
-func (d *deployments_mock) GetScale(ctx context.Context, deploymentName string, options metav1.GetOptions) (*autoscalingv1.Scale, error) {
-	panic("mocked GetScale not implemented")
-}
-func (d *deployments_mock) UpdateScale(ctx context.Context, deploymentName string, scale *autoscalingv1.Scale, opts metav1.UpdateOptions) (*autoscalingv1.Scale, error) {
-	panic("mocked UpdateScale not implemented")
-}
-func (d *deployments_mock) ApplyScale(ctx context.Context, deploymentName string, scale *applyconfigurationsautoscalingv1.ScaleApplyConfiguration, opts metav1.ApplyOptions) (*autoscalingv1.Scale, error) {
-	panic("mocked ApplyScale not implemented")
-}
-
-type statefulsets_mock struct {
-	list            *appsv1.StatefulSetList
-	returnListError error
-}
-
-func (*statefulsets_mock) Create(ctx context.Context, statefulSet *appsv1.StatefulSet, opts metav1.CreateOptions) (*appsv1.StatefulSet, error) {
-	panic("mocked Create not implemented")
-}
-func (*statefulsets_mock) Update(ctx context.Context, statefulSet *appsv1.StatefulSet, opts metav1.UpdateOptions) (*appsv1.StatefulSet, error) {
-	panic("mocked Update not implemented")
-}
-func (*statefulsets_mock) UpdateStatus(ctx context.Context, statefulSet *appsv1.StatefulSet, opts metav1.UpdateOptions) (*appsv1.StatefulSet, error) {
-	panic("mocked UpdateStatus not implemented")
-}
-func (*statefulsets_mock) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	panic("mocked Delete not implemented")
-}
-func (*statefulsets_mock) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	panic("mocked DeleteCollection not implemented")
-}
-func (*statefulsets_mock) Get(ctx context.Context, name string, opts metav1.GetOptions) (*appsv1.StatefulSet, error) {
-	panic("mocked Get not implemented")
-}
-func (s *statefulsets_mock) List(ctx context.Context, opts metav1.ListOptions) (*appsv1.StatefulSetList, error) {
-	return s.list, s.returnListError
-}
-func (*statefulsets_mock) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	panic("mocked Watch not implemented")
-}
-func (*statefulsets_mock) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *appsv1.StatefulSet, err error) {
-	panic("mocked Patch not implemented")
-}
-func (*statefulsets_mock) Apply(ctx context.Context, statefulSet *confappsv1.StatefulSetApplyConfiguration, opts metav1.ApplyOptions) (result *appsv1.StatefulSet, err error) {
-	panic("mocked Apply not implemented")
-}
-func (*statefulsets_mock) ApplyStatus(ctx context.Context, statefulSet *confappsv1.StatefulSetApplyConfiguration, opts metav1.ApplyOptions) (result *appsv1.StatefulSet, err error) {
-	panic("mocked ApplyStatus not implemented")
-}
-func (*statefulsets_mock) GetScale(ctx context.Context, statefulSetName string, options metav1.GetOptions) (*autoscalingv1.Scale, error) {
-	panic("mocked GetScale not implemented")
-}
-func (*statefulsets_mock) UpdateScale(ctx context.Context, statefulSetName string, scale *autoscalingv1.Scale, opts metav1.UpdateOptions) (*autoscalingv1.Scale, error) {
-	panic("mocked UpdateScale not implemented")
-}
-func (*statefulsets_mock) ApplyScale(ctx context.Context, statefulSetName string, scale *applyconfigurationsautoscalingv1.ScaleApplyConfiguration, opts metav1.ApplyOptions) (*autoscalingv1.Scale, error) {
-	panic("mocked ApplyScale not implemented")
-}
-
-type daemonsets_mock struct {
-	list            *appsv1.DaemonSetList
-	returnListError error
-}
-
-func (*daemonsets_mock) Create(ctx context.Context, daemonSet *appsv1.DaemonSet, opts metav1.CreateOptions) (*appsv1.DaemonSet, error) {
-	panic("mocked Create not implemented")
-}
-func (*daemonsets_mock) Update(ctx context.Context, daemonSet *appsv1.DaemonSet, opts metav1.UpdateOptions) (*appsv1.DaemonSet, error) {
-	panic("mocked Update not implemented")
-}
-func (*daemonsets_mock) UpdateStatus(ctx context.Context, daemonSet *appsv1.DaemonSet, opts metav1.UpdateOptions) (*appsv1.DaemonSet, error) {
-	panic("mocked UpdateStatus not implemented")
-}
-func (*daemonsets_mock) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	panic("mocked Delete not implemented")
-}
-func (*daemonsets_mock) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	panic("mocked DeleteCollection not implemented")
-}
-func (*daemonsets_mock) Get(ctx context.Context, name string, opts metav1.GetOptions) (*appsv1.DaemonSet, error) {
-	panic("mocked Get not implemented")
-}
-func (s *daemonsets_mock) List(ctx context.Context, opts metav1.ListOptions) (*appsv1.DaemonSetList, error) {
-	return s.list, s.returnListError
-}
-func (*daemonsets_mock) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	panic("mocked Watch not implemented")
-}
-func (*daemonsets_mock) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *appsv1.DaemonSet, err error) {
-	panic("mocked Patch not implemented")
-}
-func (*daemonsets_mock) Apply(ctx context.Context, daemonSet *confappsv1.DaemonSetApplyConfiguration, opts metav1.ApplyOptions) (result *appsv1.DaemonSet, err error) {
-	panic("mocked Apply not implemented")
-}
-func (*daemonsets_mock) ApplyStatus(ctx context.Context, daemonSet *confappsv1.DaemonSetApplyConfiguration, opts metav1.ApplyOptions) (result *appsv1.DaemonSet, err error) {
-	panic("mocked ApplyStatus not implemented")
-}
-
-type TypedBatchV1Client_mock struct {
-	cronjobs typedbatchv1.CronJobInterface
-}
-
-func (c *TypedBatchV1Client_mock) RESTClient() rest.Interface {
-	panic("mocked RESTClient not implemented")
-}
-
-func (c *TypedBatchV1Client_mock) CronJobs(namespace string) typedbatchv1.CronJobInterface {
-	return c.cronjobs
-}
-func (c *TypedBatchV1Client_mock) Jobs(namespace string) typedbatchv1.JobInterface {
-	panic("mocked Jobs not implemented")
-}
-
-type cronjobs_mock struct {
-	list            *batchv1.CronJobList
-	returnListError error
-}
-
-func (*cronjobs_mock) Create(ctx context.Context, cronJob *batchv1.CronJob, opts metav1.CreateOptions) (*batchv1.CronJob, error) {
-	panic("mocked Create not implemented")
-}
-func (*cronjobs_mock) Update(ctx context.Context, cronJob *batchv1.CronJob, opts metav1.UpdateOptions) (*batchv1.CronJob, error) {
-	panic("mocked Create not implemented")
-}
-func (*cronjobs_mock) UpdateStatus(ctx context.Context, cronJob *batchv1.CronJob, opts metav1.UpdateOptions) (*batchv1.CronJob, error) {
-	panic("mocked Create not implemented")
-}
-func (*cronjobs_mock) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	panic("mocked Create not implemented")
-}
-func (*cronjobs_mock) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	panic("mocked Create not implemented")
-}
-func (*cronjobs_mock) Get(ctx context.Context, name string, opts metav1.GetOptions) (*batchv1.CronJob, error) {
-	panic("mocked Create not implemented")
-}
-func (s *cronjobs_mock) List(ctx context.Context, opts metav1.ListOptions) (*batchv1.CronJobList, error) {
-	return s.list, s.returnListError
-}
-func (*cronjobs_mock) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	panic("mocked Create not implemented")
-}
-func (*cronjobs_mock) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *batchv1.CronJob, err error) {
-	panic("mocked Create not implemented")
-}
-func (*cronjobs_mock) Apply(ctx context.Context, cronJob *applyconfigurationsbatchv1.CronJobApplyConfiguration, opts metav1.ApplyOptions) (result *batchv1.CronJob, err error) {
-	panic("mocked Create not implemented")
-}
-func (*cronjobs_mock) ApplyStatus(ctx context.Context, cronJob *applyconfigurationsbatchv1.CronJobApplyConfiguration, opts metav1.ApplyOptions) (result *batchv1.CronJob, err error) {
-	panic("mocked Create not implemented")
-}
-
-func Test_ContinuousIntegrationNamespaces(t *testing.T) {
-	type args struct {
-		k8sClients        KubernetesClients
-		ageFuncs          []YoungestResourceAgeFunc
-		expectedDeletes   int
-		protectedBranches []string
-		optOutAnnotations []string
-		maxTestingAge     int64
-		maxReviewAge      int64
-		dryRun            bool
-	}
+func TestYoungestAge(t *testing.T) {
 	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
+		name     string
+		ageFuncs []YoungestResourceAgeFunc
+		want     ResourceAge
+		found    bool
+		wantErr  bool
 	}{
 		{
-			name: "keep namespace",
-			args: args{
-				k8sClients: KubernetesClients{
-					CoreV1: &TypedCoreV1Client_mock{
-						namespaces: &namespaces_mock{
-							list: &v1.NamespaceList{Items: []v1.Namespace{
-								{ObjectMeta: metav1.ObjectMeta{
-									Name: "testing",
-									CreationTimestamp: metav1.NewTime(
-										time.Now(),
-									),
-								}},
-							}},
-						},
-						pods: &pods_mock{
-							list: &v1.PodList{
-								Items: []v1.Pod{
-									{
-										ObjectMeta: metav1.ObjectMeta{
-											CreationTimestamp: metav1.NewTime(
-												time.Now(),
-											),
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				ageFuncs: []YoungestResourceAgeFunc{
-					NamespaceAge,
-					YoungestPodAge,
-				},
-				expectedDeletes:   0,
-				protectedBranches: []string{},
-				optOutAnnotations: []string{},
-				maxTestingAge:     int64(60 * 60 * 6),
-				maxReviewAge:      int64(60 * 60 * 24 * 2),
-			},
-			wantErr: false,
-		},
-		{
-			name: "keep ci namespace",
-			args: args{
-				k8sClients: KubernetesClients{
-					CoreV1: &TypedCoreV1Client_mock{
-						namespaces: &namespaces_mock{
-							list: &v1.NamespaceList{Items: []v1.Namespace{
-								{ObjectMeta: metav1.ObjectMeta{
-									Name: "testing-ci",
-									CreationTimestamp: metav1.Time{
-										Time: time.Now().Add(-1 * time.Hour),
-									},
-								}},
-							}},
-						},
-						pods: &pods_mock{
-							list: &v1.PodList{
-								Items: []v1.Pod{
-									{
-										ObjectMeta: metav1.ObjectMeta{
-											CreationTimestamp: metav1.NewTime(
-												time.Now().Add(-1 * time.Hour),
-											),
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				ageFuncs: []YoungestResourceAgeFunc{
-					NamespaceAge,
-					YoungestPodAge,
-				},
-				expectedDeletes:   0,
-				protectedBranches: []string{},
-				optOutAnnotations: []string{},
-				maxTestingAge:     int64(60 * 60 * 6),
-				maxReviewAge:      int64(60 * 60 * 24 * 2),
-			},
-			wantErr: false,
-		},
-		{
-			name: "delete ci namespace",
-			args: args{
-				k8sClients: KubernetesClients{
-					CoreV1: &TypedCoreV1Client_mock{
-						namespaces: &namespaces_mock{
-							list: &v1.NamespaceList{Items: []v1.Namespace{
-								{ObjectMeta: metav1.ObjectMeta{
-									Name: "ci-testing-d41d8cd98f00b204e9800998ecf8427e",
-									CreationTimestamp: metav1.Time{
-										Time: time.Now().Add(-10 * time.Hour),
-									},
-								}},
-							}},
-						},
-						pods: &pods_mock{
-							list: &v1.PodList{
-								Items: []v1.Pod{
-									{
-										ObjectMeta: metav1.ObjectMeta{
-											CreationTimestamp: metav1.NewTime(
-												time.Now().Add(-10 * time.Hour),
-											),
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				ageFuncs: []YoungestResourceAgeFunc{
-					NamespaceAge,
-					YoungestPodAge,
-				},
-				expectedDeletes:   1,
-				protectedBranches: []string{},
-				optOutAnnotations: []string{},
-				maxTestingAge:     int64(60 * 60 * 6),
-				maxReviewAge:      int64(60 * 60 * 24 * 2),
-			},
-			wantErr: false,
-		},
-		{
-			name: "skip terminating namespace",
-			args: args{
-				k8sClients: KubernetesClients{
-					CoreV1: &TypedCoreV1Client_mock{
-						namespaces: &namespaces_mock{
-							list: &v1.NamespaceList{Items: []v1.Namespace{
-								{
-									ObjectMeta: metav1.ObjectMeta{
-										Name: "ci-terminating-d41d8cd98f00b204e9800998ecf8427e",
-										CreationTimestamp: metav1.Time{
-											Time: time.Now().Add(-10 * time.Hour),
-										},
-									},
-									Status: v1.NamespaceStatus{
-										Phase: v1.NamespaceTerminating,
-									},
-								},
-							}},
-						},
-						pods: &pods_mock{
-							list: &v1.PodList{
-								Items: []v1.Pod{
-									{
-										ObjectMeta: metav1.ObjectMeta{
-											CreationTimestamp: metav1.NewTime(
-												time.Now().Add(-10 * time.Hour),
-											),
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				ageFuncs: []YoungestResourceAgeFunc{
-					NamespaceAge,
-					YoungestPodAge,
-				},
-				expectedDeletes:   0,
-				protectedBranches: []string{},
-				optOutAnnotations: []string{},
-				maxTestingAge:     int64(60 * 60 * 6),
-				maxReviewAge:      int64(60 * 60 * 24 * 2),
-			},
-			wantErr: false,
-		},
-		{
-			name: "it should delete ns - when ns age implies deletion + pod age is (almost) same as ns age",
-			args: args{
-				k8sClients: KubernetesClients{
-					CoreV1: &TypedCoreV1Client_mock{
-						namespaces: &namespaces_mock{
-							list: &v1.NamespaceList{Items: []v1.Namespace{
-								{ObjectMeta: metav1.ObjectMeta{
-									Name: "ci-testing-d41d8cd98f00b204e9800998ecf8427e",
-									CreationTimestamp: metav1.Time{
-										Time: time.Now().Add(-10 * time.Hour),
-									},
-								}},
-							}},
-						},
-						pods: &pods_mock{
-							list: &v1.PodList{
-								Items: []v1.Pod{
-									{
-										ObjectMeta: metav1.ObjectMeta{
-											CreationTimestamp: metav1.NewTime(
-												time.Now().Add(-10 * time.Hour),
-											),
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				ageFuncs: []YoungestResourceAgeFunc{
-					NamespaceAge,
-					YoungestPodAge,
-				},
-				expectedDeletes:   1,
-				protectedBranches: []string{},
-				optOutAnnotations: []string{},
-				maxTestingAge:     int64(60 * 60 * 6),
-				maxReviewAge:      int64(60 * 60 * 24 * 2),
-			},
-			wantErr: false,
-		},
-		{
-			name: "it should not delete ns - when ns age implies deletion but pod age is to young",
-			args: args{
-				k8sClients: KubernetesClients{
-					CoreV1: &TypedCoreV1Client_mock{
-						namespaces: &namespaces_mock{
-							list: &v1.NamespaceList{Items: []v1.Namespace{
-								{ObjectMeta: metav1.ObjectMeta{
-									Name: "ci-testing-d41d8cd98f00b204e9800998ecf8427e",
-									CreationTimestamp: metav1.Time{
-										Time: time.Now().Add(-10 * time.Hour),
-									},
-								}},
-							}},
-						},
-						pods: &pods_mock{
-							list: &v1.PodList{
-								Items: []v1.Pod{
-									{
-										ObjectMeta: metav1.ObjectMeta{
-											CreationTimestamp: metav1.NewTime(
-												time.Now().Add(-1 * time.Hour),
-											),
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				ageFuncs: []YoungestResourceAgeFunc{
-					NamespaceAge,
-					YoungestPodAge,
-				},
-				expectedDeletes:   0,
-				protectedBranches: []string{},
-				optOutAnnotations: []string{},
-				maxTestingAge:     int64(60 * 60 * 6),
-				maxReviewAge:      int64(60 * 60 * 24 * 2),
-			},
-			wantErr: false,
-		},
-		{
-			name: "it should delete ns - when ns implies deletion & pod age implies deletion",
-			args: args{
-				k8sClients: KubernetesClients{
-					CoreV1: &TypedCoreV1Client_mock{
-						namespaces: &namespaces_mock{
-							list: &v1.NamespaceList{Items: []v1.Namespace{
-								{ObjectMeta: metav1.ObjectMeta{
-									Name: "ci-testing-d41d8cd98f00b204e9800998ecf8427e",
-									CreationTimestamp: metav1.Time{
-										Time: time.Now().Add(-15 * time.Hour),
-									},
-								}},
-							}},
-						},
-						pods: &pods_mock{
-							list: &v1.PodList{
-								Items: []v1.Pod{
-									{
-										ObjectMeta: metav1.ObjectMeta{
-											CreationTimestamp: metav1.NewTime(
-												time.Now().Add(-10 * time.Hour),
-											),
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				ageFuncs: []YoungestResourceAgeFunc{
-					NamespaceAge,
-					YoungestPodAge,
-				},
-				expectedDeletes:   1,
-				protectedBranches: []string{},
-				optOutAnnotations: []string{},
-				maxTestingAge:     int64(60 * 60 * 6),
-				maxReviewAge:      int64(60 * 60 * 24 * 2),
-			},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-
-			if err := ContinuousIntegrationNamespaces(ctx, tt.args.k8sClients, tt.args.ageFuncs, tt.args.protectedBranches, tt.args.optOutAnnotations, tt.args.maxTestingAge, tt.args.maxReviewAge, tt.args.dryRun); (err != nil) != tt.wantErr {
-				t.Errorf("ContinuousIntegrationNamespaces() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			deletions := tt.args.k8sClients.CoreV1.(*TypedCoreV1Client_mock).namespaces.(*namespaces_mock).deletions
-			if tt.args.expectedDeletes != deletions {
-				t.Errorf("deletions = %v, want %v", deletions, tt.args.expectedDeletes)
-			}
-		})
-	}
-}
-
-func Test_ageFns_youngestAge(t *testing.T) {
-	type args struct {
-		k8sClients KubernetesClients
-		namespace  v1.Namespace
-	}
-	tests := []struct {
-		name              string
-		ageFuncs          []YoungestResourceAgeFunc
-		args              args
-		want              ResourceAge
-		wantErr           bool
-		expectedErrorType error
-	}{
-		{
-			name:              "empty ageFns list",
-			ageFuncs:          []YoungestResourceAgeFunc{},
-			args:              args{k8sClients: KubernetesClients{}, namespace: v1.Namespace{}},
-			want:              ResourceAge(0),
-			wantErr:           true,
-			expectedErrorType: ErrEmptyFnList,
+			name:     "empty ageFns list",
+			ageFuncs: []YoungestResourceAgeFunc{},
+			want:     ResourceAge(0),
+			found:    false,
+			wantErr:  false,
 		},
 		{
 			name: "fn returning NO_AGES_ERROR (e.g. like pod only - empty list) ",
 			ageFuncs: []YoungestResourceAgeFunc{
-				func(c context.Context, k KubernetesClients, n v1.Namespace) (ResourceAge, error) {
-					return ResourceAge(0), ErrEmptyK8sResourceList
+				func(c context.Context, k KubernetesAPI) (ResourceAge, bool, error) {
+					return ResourceAge(0), false, nil
 				},
 			},
-			args: args{
-				k8sClients: KubernetesClients{},
-				namespace:  v1.Namespace{},
-			},
-			want:              ResourceAge(0),
-			wantErr:           true,
-			expectedErrorType: ErrNoAges,
+			want:    ResourceAge(0),
+			found:   false,
+			wantErr: false,
 		},
 		{
 			name: "single function returning age (like ns only, no pods OR only one pod, no ns)",
 			ageFuncs: []YoungestResourceAgeFunc{
-				func(c context.Context, k KubernetesClients, n v1.Namespace) (ResourceAge, error) {
-					return ResourceAge(54000), nil
+				func(c context.Context, k KubernetesAPI) (ResourceAge, bool, error) {
+					return ResourceAge(54000), true, nil
 				},
 			},
-			args: args{
-				k8sClients: KubernetesClients{},
-				namespace:  v1.Namespace{},
-			},
-			want:              ResourceAge(54000),
-			wantErr:           false,
-			expectedErrorType: nil,
+			want:    ResourceAge(54000),
+			found:   true,
+			wantErr: false,
 		},
 		{
 			name: "two fns, first returns younger age",
 			ageFuncs: []YoungestResourceAgeFunc{
-				func(c context.Context, k KubernetesClients, n v1.Namespace) (ResourceAge, error) {
-					return ResourceAge(1), nil
+				func(c context.Context, k KubernetesAPI) (ResourceAge, bool, error) {
+					return ResourceAge(1), true, nil
 				},
-				func(c context.Context, k KubernetesClients, n v1.Namespace) (ResourceAge, error) {
-					return ResourceAge(2), nil
+				func(c context.Context, k KubernetesAPI) (ResourceAge, bool, error) {
+					return ResourceAge(2), true, nil
 				},
 			},
-			args: args{
-				k8sClients: KubernetesClients{},
-				namespace:  v1.Namespace{},
-			},
-			want:              ResourceAge(1),
-			wantErr:           false,
-			expectedErrorType: nil,
+			want:    ResourceAge(1),
+			found:   true,
+			wantErr: false,
 		},
 		{
 			name: "two fns, second returns younger age",
 			ageFuncs: []YoungestResourceAgeFunc{
-				func(c context.Context, k KubernetesClients, n v1.Namespace) (ResourceAge, error) {
-					return ResourceAge(2), nil
+				func(c context.Context, k KubernetesAPI) (ResourceAge, bool, error) {
+					return ResourceAge(2), true, nil
 				},
-				func(c context.Context, k KubernetesClients, n v1.Namespace) (ResourceAge, error) {
-					return ResourceAge(1), nil
+				func(c context.Context, k KubernetesAPI) (ResourceAge, bool, error) {
+					return ResourceAge(1), true, nil
 				},
 			},
-			args: args{
-				k8sClients: KubernetesClients{},
-				namespace:  v1.Namespace{},
-			},
-			want:              ResourceAge(1),
-			wantErr:           false,
-			expectedErrorType: nil,
+			want:    ResourceAge(1),
+			found:   true,
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
@@ -850,7 +151,7 @@ func Test_ageFns_youngestAge(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			got, err := youngestAge(ctx, tt.ageFuncs, tt.args.k8sClients, tt.args.namespace)
+			got, found, err := youngestAge(ctx, tt.ageFuncs, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ageFns.youngestAge() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -858,23 +159,20 @@ func Test_ageFns_youngestAge(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("ageFns.youngestAge() = %v, want %v", got, tt.want)
 			}
-			if tt.wantErr {
-				if !errors.Is(err, tt.expectedErrorType) {
-					t.Errorf(
-						"got error type = %v with value \"%s\", expected error type = %v",
-						reflect.TypeOf(err), reflect.ValueOf(err), reflect.TypeOf(tt.expectedErrorType),
-					)
-					return
-				}
+			if found != tt.found {
+				t.Errorf("found = %v, want %v", found, tt.found)
+			}
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ageFns.youngestAge() error = %v, wantErr %v", err, tt.wantErr)
+				return
 			}
 		})
 	}
 }
 
-func Test_namespaceAge(t *testing.T) {
+func TestNamespaceAge(t *testing.T) {
 	now := time.Now()
 	type args struct {
-		k8sClients  KubernetesClients
 		namespace   v1.Namespace
 		expectedAge ResourceAge
 	}
@@ -886,9 +184,7 @@ func Test_namespaceAge(t *testing.T) {
 		{
 			name: "get correct namespace age 10h",
 			args: args{
-				k8sClients: KubernetesClients{},
 				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
 					CreationTimestamp: metav1.NewTime(
 						now.Add(-10 * time.Hour),
 					),
@@ -900,9 +196,7 @@ func Test_namespaceAge(t *testing.T) {
 		{
 			name: "get correct namespace age 5h",
 			args: args{
-				k8sClients: KubernetesClients{},
 				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
 					CreationTimestamp: metav1.NewTime(
 						now.Add(-5 * time.Hour),
 					),
@@ -917,11 +211,17 @@ func Test_namespaceAge(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			namespace_age, err := NamespaceAge(ctx, tt.args.k8sClients, tt.args.namespace)
+			api := &KubernetesAPIMock{
+				namespace: tt.args.namespace,
+			}
+
+			namespace_age, found, err := NamespaceAge(ctx, api)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("namespaceAge() error = %v, wantErr %v", err, tt.wantErr)
 			}
-
+			if found != true {
+				t.Errorf("found = %v, want %v", found, true) // namespaces always exist
+			}
 			if tt.args.expectedAge != namespace_age {
 				t.Errorf("Namespace age = %v, want %v", namespace_age, tt.args.expectedAge)
 			}
@@ -942,12 +242,11 @@ func TestYoungestItemsResourceAge(t *testing.T) {
 	}
 
 	tests := []struct {
-		name              string
-		args              args
-		expectedAge       ResourceAge
-		wantErr           bool
-		checkErrorType    bool
-		expectedErrorType error
+		name        string
+		args        args
+		expectedAge ResourceAge
+		found       bool
+		wantErr     bool
 	}{
 		{
 			name: "get correct age 5h",
@@ -964,193 +263,36 @@ func TestYoungestItemsResourceAge(t *testing.T) {
 					return item.ts
 				},
 			},
-
-			expectedAge:       ResourceAge(18000),
-			wantErr:           false,
-			checkErrorType:    false,
-			expectedErrorType: nil,
+			expectedAge: ResourceAge(18000),
+			found:       true,
+			wantErr:     false,
 		},
 		{
-			name: "empty list - expect error",
+			name: "empty list",
 			args: args{
 				Items: []testType{},
 				creationTimestampGetter: func(item testType) metav1.Time {
 					return item.ts
 				},
 			},
-
-			expectedAge:       ResourceAge(-1),
-			wantErr:           true,
-			checkErrorType:    true,
-			expectedErrorType: ErrEmptyK8sResourceList,
+			expectedAge: 0,
+			found:       false,
+			wantErr:     false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			got, err := getYoungestItemsResourceAge(tt.args.Items, tt.args.creationTimestampGetter)
+			got, found, err := getYoungestItemsResourceAge(tt.args.Items, tt.args.creationTimestampGetter)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("YoungestItemsResourceAge() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if tt.wantErr && tt.checkErrorType {
-				if !errors.Is(err, tt.expectedErrorType) {
-					t.Errorf(
-						"got error type = %v, expected error type = %v, got err msg=\"%s\", expected err msg=\"%s\"",
-						reflect.TypeOf(err), reflect.TypeOf(tt.expectedErrorType), err, tt.expectedErrorType,
-					)
-					return
-				}
-			}
 			if got != tt.expectedAge {
 				t.Errorf("YoungestItemsResourceAge() = %v, want %v", got, tt.expectedAge)
 			}
-		})
-	}
-}
-
-func Test_youngestPodAge(t *testing.T) {
-	now := time.Now()
-	type args struct {
-		k8sClients KubernetesClients
-		namespace  v1.Namespace
-	}
-	tests := []struct {
-		name              string
-		args              args
-		expectedAge       ResourceAge
-		wantErr           bool
-		checkErrorType    bool
-		expectedErrorType error
-	}{
-		{
-			name: "get correct pod age 10h",
-			args: args{
-				k8sClients: KubernetesClients{
-					CoreV1: &TypedCoreV1Client_mock{
-						pods: &pods_mock{
-							list: &v1.PodList{
-								Items: []v1.Pod{
-									{
-										ObjectMeta: metav1.ObjectMeta{
-											Name: "testingPod",
-											CreationTimestamp: metav1.Time{
-												Time: now.Add(-10 * time.Hour),
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
-				}},
-			},
-			expectedAge:       ResourceAge(36000),
-			wantErr:           false,
-			checkErrorType:    false,
-			expectedErrorType: nil,
-		},
-		{
-			name: "get correct pod age 5h",
-			args: args{
-				k8sClients: KubernetesClients{
-					CoreV1: &TypedCoreV1Client_mock{
-						pods: &pods_mock{
-							list: &v1.PodList{
-								Items: []v1.Pod{
-									{
-										ObjectMeta: metav1.ObjectMeta{
-											Name: "testingPod",
-											CreationTimestamp: metav1.Time{
-												Time: now.Add(-5 * time.Hour),
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
-				}},
-			},
-			expectedAge:       ResourceAge(18000),
-			wantErr:           false,
-			checkErrorType:    false,
-			expectedErrorType: nil,
-		},
-		{
-			name: "empty pod list - expect error",
-			args: args{
-				k8sClients: KubernetesClients{
-					CoreV1: &TypedCoreV1Client_mock{
-						pods: &pods_mock{
-							list: &v1.PodList{
-								Items: []v1.Pod{},
-							},
-						},
-					},
-				},
-				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
-				}},
-			},
-			expectedAge:       ResourceAge(-1),
-			wantErr:           true,
-			checkErrorType:    true,
-			expectedErrorType: ErrEmptyK8sResourceList,
-		},
-		{
-			name: "expect list error (from k8s client side)",
-			args: args{
-				k8sClients: KubernetesClients{
-					CoreV1: &TypedCoreV1Client_mock{
-						pods: &pods_mock{
-							list: &v1.PodList{
-								Items: []v1.Pod{},
-							},
-							returnListError: errors.New("pseudo random k8s appsv1 pods list error"),
-						},
-					},
-				},
-				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
-				}},
-			},
-			expectedAge:       ResourceAge(-1),
-			wantErr:           true,
-			checkErrorType:    false,
-			expectedErrorType: nil,
-		},
-
-		//todo: test podList with multiple pods
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-
-			got, err := YoungestPodAge(ctx, tt.args.k8sClients, tt.args.namespace)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("youngestPodAge() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if tt.wantErr && tt.checkErrorType {
-				if !errors.Is(err, tt.expectedErrorType) {
-					t.Errorf(
-						"got error type = %v, expected error type = %v, got err msg=\"%s\", expected err msg=\"%s\"",
-						reflect.TypeOf(err), reflect.TypeOf(tt.expectedErrorType), err, tt.expectedErrorType,
-					)
-					return
-				}
-			}
-
-			if got != tt.expectedAge {
-				t.Errorf("youngestPodAge() = %v, want %v", got, tt.expectedAge)
+			if found != tt.found {
+				t.Errorf("found = %v, want %v", found, tt.found)
 			}
 		})
 	}
@@ -1159,146 +301,71 @@ func Test_youngestPodAge(t *testing.T) {
 func TestYoungestDeploymentAge(t *testing.T) {
 	now := time.Now()
 
-	type args struct {
-		k8sClients KubernetesClients
-		namespace  v1.Namespace
-	}
 	tests := []struct {
-		name              string
-		args              args
-		expectedAge       ResourceAge
-		wantErr           bool
-		checkErrorType    bool
-		expectedErrorType error
+		name        string
+		api         KubernetesAPI
+		expectedAge ResourceAge
+		found       bool
+		wantErr     bool
 	}{
 		{
 			name: "expect list error (from k8s client side)",
-			args: args{
-				k8sClients: KubernetesClients{
-					CoreV1: &TypedCoreV1Client_mock{
-						pods: &pods_mock{
-							list: &v1.PodList{
-								Items: []v1.Pod{},
-							},
-						},
-					},
-					AppsV1: &TypedAppsV1Client_mock{
-						deployments: &deployments_mock{
-							list: &appsv1.DeploymentList{
-								Items: []appsv1.Deployment{},
-							},
-							returnListError: errors.New("pseudo random k8s appsv1 deployments list error"),
-						},
-					},
-				},
-				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
-				}},
+			api: &KubernetesAPIMock{
+				err: errors.New("pseudo random k8s appsv1 deployments list error"),
 			},
-			expectedAge:       ResourceAge(-1),
-			wantErr:           true,
-			checkErrorType:    false,
-			expectedErrorType: nil,
+			expectedAge: 0,
+			found:       false,
+			wantErr:     true,
 		},
 		{
 			name: "get correct deployment age 10h",
-			args: args{
-				k8sClients: KubernetesClients{
-					CoreV1: &TypedCoreV1Client_mock{
-						pods: &pods_mock{
-							list: &v1.PodList{
-								Items: []v1.Pod{},
-							},
-						},
-					},
-					AppsV1: &TypedAppsV1Client_mock{
-						deployments: &deployments_mock{
-							list: &appsv1.DeploymentList{
-								Items: []appsv1.Deployment{
-									{
-										ObjectMeta: metav1.ObjectMeta{
-											CreationTimestamp: metav1.Time{
-												Time: now.Add(-10 * time.Hour),
-											},
-										},
-									},
-								},
+			api: &KubernetesAPIMock{
+				deployments: []appsv1.Deployment{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							CreationTimestamp: metav1.Time{
+								Time: now.Add(-10 * time.Hour),
 							},
 						},
 					},
 				},
-				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
-				}},
 			},
-			expectedAge:       ResourceAge(36000),
-			wantErr:           false,
-			checkErrorType:    false,
-			expectedErrorType: nil,
+			expectedAge: ResourceAge(36000),
+			found:       true,
+			wantErr:     false,
 		},
 		{
 			name: "get correct deployment age 5h",
-			args: args{
-				k8sClients: KubernetesClients{
-					CoreV1: &TypedCoreV1Client_mock{
-						pods: &pods_mock{
-							list: &v1.PodList{
-								Items: []v1.Pod{},
+			api: &KubernetesAPIMock{
+				deployments: []appsv1.Deployment{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							CreationTimestamp: metav1.Time{
+								Time: now.Add(-10 * time.Hour),
 							},
 						},
 					},
-					AppsV1: &TypedAppsV1Client_mock{
-						deployments: &deployments_mock{
-							list: &appsv1.DeploymentList{
-								Items: []appsv1.Deployment{
-									{
-										ObjectMeta: metav1.ObjectMeta{
-											CreationTimestamp: metav1.Time{
-												Time: now.Add(-5 * time.Hour),
-											},
-										},
-									},
-								},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							CreationTimestamp: metav1.Time{
+								Time: now.Add(-5 * time.Hour),
 							},
 						},
 					},
 				},
-				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
-				}},
 			},
-			expectedAge:       ResourceAge(18000),
-			wantErr:           false,
-			checkErrorType:    false,
-			expectedErrorType: nil,
+			expectedAge: ResourceAge(18000),
+			found:       true,
+			wantErr:     false,
 		},
 		{
-			name: "empty deployment list - expect error",
-			args: args{
-				k8sClients: KubernetesClients{
-					CoreV1: &TypedCoreV1Client_mock{
-						pods: &pods_mock{
-							list: &v1.PodList{
-								Items: []v1.Pod{},
-							},
-						},
-					},
-					AppsV1: &TypedAppsV1Client_mock{
-						deployments: &deployments_mock{
-							list: &appsv1.DeploymentList{
-								Items: []appsv1.Deployment{},
-							},
-						},
-					},
-				},
-				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
-				}},
+			name: "empty deployment list",
+			api: &KubernetesAPIMock{
+				deployments: []appsv1.Deployment{},
 			},
-			expectedAge:       ResourceAge(-1),
-			wantErr:           true,
-			checkErrorType:    true,
-			expectedErrorType: ErrEmptyK8sResourceList,
+			expectedAge: 0,
+			found:       false,
+			wantErr:     false,
 		},
 	}
 	for _, tt := range tests {
@@ -1306,22 +373,16 @@ func TestYoungestDeploymentAge(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			cancel()
 
-			got, err := YoungestDeploymentAge(ctx, tt.args.k8sClients, tt.args.namespace)
+			got, found, err := YoungestDeploymentAge(ctx, tt.api)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("YoungestDeploymentAge() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if tt.wantErr && tt.checkErrorType {
-				if !errors.Is(err, tt.expectedErrorType) {
-					t.Errorf(
-						"got error type = %v, expected error type = %v, got err msg=\"%s\", expected err msg=\"%s\"",
-						reflect.TypeOf(err), reflect.TypeOf(tt.expectedErrorType), err, tt.expectedErrorType,
-					)
-					return
-				}
-			}
 			if got != tt.expectedAge {
 				t.Errorf("YoungestDeploymentAge() = %v, want %v", got, tt.expectedAge)
+			}
+			if found != tt.found {
+				t.Errorf("found = %v, want %v", found, tt.found)
 			}
 		})
 	}
@@ -1335,120 +396,70 @@ func TestYoungestStatefulsetAge(t *testing.T) {
 		namespace  v1.Namespace
 	}
 	tests := []struct {
-		name              string
-		args              args
-		expectedAge       ResourceAge
-		wantErr           bool
-		checkErrorType    bool
-		expectedErrorType error
+		name        string
+		api         KubernetesAPI
+		expectedAge ResourceAge
+		found       bool
+		wantErr     bool
 	}{
 		{
 			name: "expect list error (from k8s client side)",
-			args: args{
-				k8sClients: KubernetesClients{
-					AppsV1: &TypedAppsV1Client_mock{
-						statefulsets: &statefulsets_mock{
-							list: &appsv1.StatefulSetList{
-								Items: []appsv1.StatefulSet{},
-							},
-							returnListError: errors.New("pseudo random k8s appsv1 statefulsets list error"),
-						},
-					},
-				},
-				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
-				}},
+			api: &KubernetesAPIMock{
+				err: errors.New("pseudo random k8s appsv1 statefulsets list error"),
 			},
-			expectedAge:       ResourceAge(-1),
-			wantErr:           true,
-			checkErrorType:    false,
-			expectedErrorType: nil,
+			expectedAge: 0,
+			found:       false,
+			wantErr:     true,
 		},
 		{
 			name: "get correct statefulset age 10h",
-			args: args{
-				k8sClients: KubernetesClients{
-					AppsV1: &TypedAppsV1Client_mock{
-						statefulsets: &statefulsets_mock{
-							list: &appsv1.StatefulSetList{
-								Items: []appsv1.StatefulSet{
-									{
-										ObjectMeta: metav1.ObjectMeta{
-											CreationTimestamp: metav1.Time{
-												Time: now.Add(-10 * time.Hour),
-											},
-										},
-									},
-								},
+			api: &KubernetesAPIMock{
+				statefulSet: []appsv1.StatefulSet{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							CreationTimestamp: metav1.Time{
+								Time: now.Add(-10 * time.Hour),
 							},
 						},
 					},
 				},
-				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
-				}},
 			},
-			expectedAge:       ResourceAge(36000),
-			wantErr:           false,
-			checkErrorType:    false,
-			expectedErrorType: nil,
+			expectedAge: ResourceAge(36000),
+			found:       true,
+			wantErr:     false,
 		},
 		{
 			name: "get correct statefulset age 5h",
-			args: args{
-				k8sClients: KubernetesClients{
-					AppsV1: &TypedAppsV1Client_mock{
-						statefulsets: &statefulsets_mock{
-							list: &appsv1.StatefulSetList{
-								Items: []appsv1.StatefulSet{
-									{
-										ObjectMeta: metav1.ObjectMeta{
-											CreationTimestamp: metav1.Time{
-												Time: now.Add(-10 * time.Hour),
-											},
-										},
-									},
-									{
-										ObjectMeta: metav1.ObjectMeta{
-											CreationTimestamp: metav1.Time{
-												Time: now.Add(-5 * time.Hour),
-											},
-										},
-									},
-								},
+			api: &KubernetesAPIMock{
+				statefulSet: []appsv1.StatefulSet{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							CreationTimestamp: metav1.Time{
+								Time: now.Add(-10 * time.Hour),
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							CreationTimestamp: metav1.Time{
+								Time: now.Add(-5 * time.Hour),
 							},
 						},
 					},
 				},
-				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
-				}},
 			},
-			expectedAge:       ResourceAge(18000),
-			wantErr:           false,
-			checkErrorType:    false,
-			expectedErrorType: nil,
+			expectedAge: ResourceAge(18000),
+			found:       true,
+			wantErr:     false,
 		},
 		{
-			name: "empty statefulset list - expect error",
-			args: args{
-				k8sClients: KubernetesClients{
-					AppsV1: &TypedAppsV1Client_mock{
-						statefulsets: &statefulsets_mock{
-							list: &appsv1.StatefulSetList{
-								Items: []appsv1.StatefulSet{},
-							},
-						},
-					},
-				},
-				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
-				}},
+			name: "empty statefulset list",
+			api: &KubernetesAPIMock{
+				statefulSet: []appsv1.StatefulSet{},
 			},
-			expectedAge:       ResourceAge(-1),
-			wantErr:           true,
-			checkErrorType:    true,
-			expectedErrorType: ErrEmptyK8sResourceList,
+			expectedAge: 0,
+			found:       false,
+			wantErr:     false,
 		},
 	}
 	for _, tt := range tests {
@@ -1456,22 +467,16 @@ func TestYoungestStatefulsetAge(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			cancel()
 
-			got, err := YoungestStatefulsetAge(ctx, tt.args.k8sClients, tt.args.namespace)
+			got, found, err := YoungestStatefulsetAge(ctx, tt.api)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("YoungestStatefulsetAge() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if tt.wantErr && tt.checkErrorType {
-				if !errors.Is(err, tt.expectedErrorType) {
-					t.Errorf(
-						"got error type = %v, expected error type = %v, got err msg=\"%s\", expected err msg=\"%s\"",
-						reflect.TypeOf(err), reflect.TypeOf(tt.expectedErrorType), err, tt.expectedErrorType,
-					)
-					return
-				}
-			}
 			if got != tt.expectedAge {
 				t.Errorf("YoungestStatefulsetAge() = %v, want %v", got, tt.expectedAge)
+			}
+			if found != tt.found {
+				t.Errorf("found = %v, want %v", found, tt.found)
 			}
 		})
 	}
@@ -1480,125 +485,71 @@ func TestYoungestStatefulsetAge(t *testing.T) {
 func TestYoungestDaemonsetAge(t *testing.T) {
 	now := time.Now()
 
-	type args struct {
-		k8sClients KubernetesClients
-		namespace  v1.Namespace
-	}
 	tests := []struct {
-		name              string
-		args              args
-		expectedAge       ResourceAge
-		wantErr           bool
-		checkErrorType    bool
-		expectedErrorType error
+		name        string
+		api         KubernetesAPI
+		expectedAge ResourceAge
+		found       bool
+		wantErr     bool
 	}{
 		{
 			name: "expect list error (from k8s client side)",
-			args: args{
-				k8sClients: KubernetesClients{
-					AppsV1: &TypedAppsV1Client_mock{
-						daemonsets: &daemonsets_mock{
-							list: &appsv1.DaemonSetList{
-								Items: []appsv1.DaemonSet{},
-							},
-							returnListError: errors.New("pseudo random k8s appsv1 daemonsets list error"),
-						},
-					},
-				},
-				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
-				}},
+			api: &KubernetesAPIMock{
+				err: errors.New("pseudo random k8s appsv1 daemonsets list error"),
 			},
-			expectedAge:       ResourceAge(-1),
-			wantErr:           true,
-			checkErrorType:    false,
-			expectedErrorType: nil,
+			expectedAge: 0,
+			found:       false,
+			wantErr:     true,
 		},
 		{
 			name: "get correct daemonset age 10h",
-			args: args{
-				k8sClients: KubernetesClients{
-					AppsV1: &TypedAppsV1Client_mock{
-						daemonsets: &daemonsets_mock{
-							list: &appsv1.DaemonSetList{
-								Items: []appsv1.DaemonSet{
-									{
-										ObjectMeta: metav1.ObjectMeta{
-											CreationTimestamp: metav1.Time{
-												Time: now.Add(-10 * time.Hour),
-											},
-										},
-									},
-								},
+			api: &KubernetesAPIMock{
+				daemonSet: []appsv1.DaemonSet{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							CreationTimestamp: metav1.Time{
+								Time: now.Add(-10 * time.Hour),
 							},
 						},
 					},
 				},
-				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
-				}},
 			},
-			expectedAge:       ResourceAge(36000),
-			wantErr:           false,
-			checkErrorType:    false,
-			expectedErrorType: nil,
+			expectedAge: ResourceAge(36000),
+			found:       true,
+			wantErr:     false,
 		},
 		{
 			name: "get correct daemonset age 5h",
-			args: args{
-				k8sClients: KubernetesClients{
-					AppsV1: &TypedAppsV1Client_mock{
-						daemonsets: &daemonsets_mock{
-							list: &appsv1.DaemonSetList{
-								Items: []appsv1.DaemonSet{
-									{
-										ObjectMeta: metav1.ObjectMeta{
-											CreationTimestamp: metav1.Time{
-												Time: now.Add(-10 * time.Hour),
-											},
-										},
-									},
-									{
-										ObjectMeta: metav1.ObjectMeta{
-											CreationTimestamp: metav1.Time{
-												Time: now.Add(-5 * time.Hour),
-											},
-										},
-									},
-								},
+			api: &KubernetesAPIMock{
+				daemonSet: []appsv1.DaemonSet{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							CreationTimestamp: metav1.Time{
+								Time: now.Add(-10 * time.Hour),
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							CreationTimestamp: metav1.Time{
+								Time: now.Add(-5 * time.Hour),
 							},
 						},
 					},
 				},
-				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
-				}},
 			},
-			expectedAge:       ResourceAge(18000),
-			wantErr:           false,
-			checkErrorType:    false,
-			expectedErrorType: nil,
+			expectedAge: ResourceAge(18000),
+			found:       true,
+			wantErr:     false,
 		},
 		{
-			name: "empty daemonset list - expect error",
-			args: args{
-				k8sClients: KubernetesClients{
-					AppsV1: &TypedAppsV1Client_mock{
-						daemonsets: &daemonsets_mock{
-							list: &appsv1.DaemonSetList{
-								Items: []appsv1.DaemonSet{},
-							},
-						},
-					},
-				},
-				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
-				}},
+			name: "empty daemonset list",
+			api: &KubernetesAPIMock{
+				daemonSet: []appsv1.DaemonSet{},
 			},
-			expectedAge:       ResourceAge(-1),
-			wantErr:           true,
-			checkErrorType:    true,
-			expectedErrorType: ErrEmptyK8sResourceList,
+			expectedAge: 0,
+			found:       false,
+			wantErr:     false,
 		},
 	}
 	for _, tt := range tests {
@@ -1606,22 +557,16 @@ func TestYoungestDaemonsetAge(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			cancel()
 
-			got, err := YoungestDaemonsetAge(ctx, tt.args.k8sClients, tt.args.namespace)
+			got, found, err := YoungestDaemonsetAge(ctx, tt.api)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("YoungestDaemonsetAge() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if tt.wantErr && tt.checkErrorType {
-				if !errors.Is(err, tt.expectedErrorType) {
-					t.Errorf(
-						"got error type = %v, expected error type = %v, got err msg=\"%s\", expected err msg=\"%s\"",
-						reflect.TypeOf(err), reflect.TypeOf(tt.expectedErrorType), err, tt.expectedErrorType,
-					)
-					return
-				}
-			}
 			if got != tt.expectedAge {
 				t.Errorf("YoungestDaemonsetAge() = %v, want %v", got, tt.expectedAge)
+			}
+			if found != tt.found {
+				t.Errorf("found = %v, want %v", found, tt.found)
 			}
 		})
 	}
@@ -1630,125 +575,71 @@ func TestYoungestDaemonsetAge(t *testing.T) {
 func TestYoungestCronjobAge(t *testing.T) {
 	now := time.Now()
 
-	type args struct {
-		k8sClients KubernetesClients
-		namespace  v1.Namespace
-	}
 	tests := []struct {
-		name              string
-		args              args
-		expectedAge       ResourceAge
-		wantErr           bool
-		checkErrorType    bool
-		expectedErrorType error
+		name        string
+		api         KubernetesAPI
+		expectedAge ResourceAge
+		found       bool
+		wantErr     bool
 	}{
 		{
 			name: "expect list error (from k8s client side)",
-			args: args{
-				k8sClients: KubernetesClients{
-					BatchV1: &TypedBatchV1Client_mock{
-						cronjobs: &cronjobs_mock{
-							list: &batchv1.CronJobList{
-								Items: []batchv1.CronJob{},
-							},
-							returnListError: errors.New("pseudo random k8s appsv1 cronjobs list error"),
-						},
-					},
-				},
-				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
-				}},
+			api: &KubernetesAPIMock{
+				err: errors.New("pseudo random k8s appsv1 cronjobs list error"),
 			},
-			expectedAge:       ResourceAge(-1),
-			wantErr:           true,
-			checkErrorType:    false,
-			expectedErrorType: nil,
+			expectedAge: 0,
+			found:       false,
+			wantErr:     true,
 		},
 		{
 			name: "get correct cronjob age 10h",
-			args: args{
-				k8sClients: KubernetesClients{
-					BatchV1: &TypedBatchV1Client_mock{
-						cronjobs: &cronjobs_mock{
-							list: &batchv1.CronJobList{
-								Items: []batchv1.CronJob{
-									{
-										ObjectMeta: metav1.ObjectMeta{
-											CreationTimestamp: metav1.Time{
-												Time: now.Add(-10 * time.Hour),
-											},
-										},
-									},
-								},
+			api: &KubernetesAPIMock{
+				cronJobs: []batchv1.CronJob{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							CreationTimestamp: metav1.Time{
+								Time: now.Add(-10 * time.Hour),
 							},
 						},
 					},
 				},
-				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
-				}},
 			},
-			expectedAge:       ResourceAge(36000),
-			wantErr:           false,
-			checkErrorType:    false,
-			expectedErrorType: nil,
+			expectedAge: ResourceAge(36000),
+			found:       true,
+			wantErr:     false,
 		},
 		{
 			name: "get correct cronjob age 5h",
-			args: args{
-				k8sClients: KubernetesClients{
-					BatchV1: &TypedBatchV1Client_mock{
-						cronjobs: &cronjobs_mock{
-							list: &batchv1.CronJobList{
-								Items: []batchv1.CronJob{
-									{
-										ObjectMeta: metav1.ObjectMeta{
-											CreationTimestamp: metav1.Time{
-												Time: now.Add(-10 * time.Hour),
-											},
-										},
-									},
-									{
-										ObjectMeta: metav1.ObjectMeta{
-											CreationTimestamp: metav1.Time{
-												Time: now.Add(-5 * time.Hour),
-											},
-										},
-									},
-								},
+			api: &KubernetesAPIMock{
+				cronJobs: []batchv1.CronJob{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							CreationTimestamp: metav1.Time{
+								Time: now.Add(-10 * time.Hour),
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							CreationTimestamp: metav1.Time{
+								Time: now.Add(-5 * time.Hour),
 							},
 						},
 					},
 				},
-				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
-				}},
 			},
-			expectedAge:       ResourceAge(18000),
-			wantErr:           false,
-			checkErrorType:    false,
-			expectedErrorType: nil,
+			expectedAge: ResourceAge(18000),
+			found:       true,
+			wantErr:     false,
 		},
 		{
-			name: "empty cronjob list - expect error",
-			args: args{
-				k8sClients: KubernetesClients{
-					BatchV1: &TypedBatchV1Client_mock{
-						cronjobs: &cronjobs_mock{
-							list: &batchv1.CronJobList{
-								Items: []batchv1.CronJob{},
-							},
-						},
-					},
-				},
-				namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
-					Name: "testing",
-				}},
+			name: "empty cronjob list",
+			api: &KubernetesAPIMock{
+				cronJobs: []batchv1.CronJob{},
 			},
-			expectedAge:       ResourceAge(-1),
-			wantErr:           true,
-			checkErrorType:    true,
-			expectedErrorType: ErrEmptyK8sResourceList,
+			expectedAge: 0,
+			found:       false,
+			wantErr:     false,
 		},
 	}
 	for _, tt := range tests {
@@ -1756,22 +647,242 @@ func TestYoungestCronjobAge(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			cancel()
 
-			got, err := YoungestCronjobAge(ctx, tt.args.k8sClients, tt.args.namespace)
+			got, found, err := YoungestCronjobAge(ctx, tt.api)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("YoungestCronjobAge() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if tt.wantErr && tt.checkErrorType {
-				if !errors.Is(err, tt.expectedErrorType) {
-					t.Errorf(
-						"got error type = %v, expected error type = %v, got err msg=\"%s\", expected err msg=\"%s\"",
-						reflect.TypeOf(err), reflect.TypeOf(tt.expectedErrorType), err, tt.expectedErrorType,
-					)
-					return
-				}
-			}
 			if got != tt.expectedAge {
 				t.Errorf("YoungestCronjobAge() = %v, want %v", got, tt.expectedAge)
+			}
+			if found != tt.found {
+				t.Errorf("found = %v, want %v", found, tt.found)
+			}
+		})
+	}
+}
+
+func Test_shouldDeleteNamespace(t *testing.T) {
+	type args struct {
+		api               KubernetesAPI
+		ageFuncs          []YoungestResourceAgeFunc
+		protectedBranches []string
+		optOutAnnotations []string
+		maxTestingAge     int64
+		maxReviewAge      int64
+	}
+	ageFuncs := []YoungestResourceAgeFunc{
+		func(_ context.Context, _ KubernetesAPI) (ResourceAge, bool, error) {
+			return ResourceAge(15), true, nil
+		},
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    bool
+		wantErr bool
+	}{
+		{
+			name: "keep namespace",
+			args: args{
+				api: &KubernetesAPIMock{
+					namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{}},
+				},
+				ageFuncs:     ageFuncs,
+				maxReviewAge: int64(20),
+			},
+		},
+		{
+			name: "keep hash based namespace",
+			args: args{
+				api: &KubernetesAPIMock{
+					namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+						Name: "project-shop-ci-54823-3a5db1781ab7cde0c53a3b53d995b75ee5873243",
+					}},
+				},
+				ageFuncs:      ageFuncs,
+				maxTestingAge: int64(20), // only for hash based
+			},
+		},
+		{
+			name: "keep hash based namespace with age between maxTestingAge and maxReviewAge",
+			args: args{
+				api: &KubernetesAPIMock{
+					namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+						Name: "project-shop-ci-54823-3a5db1781ab7cde0c53a3b53d995b75ee5873243",
+					}},
+				},
+				ageFuncs:      ageFuncs,
+				maxTestingAge: int64(20), // only for hash based
+				maxReviewAge:  int64(10),
+			},
+		},
+		{
+			name: "delete hash based namespace",
+			args: args{
+				api: &KubernetesAPIMock{
+					namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+						Name: "project-shop-ci-54823-3a5db1781ab7cde0c53a3b53d995b75ee5873243",
+					}},
+				},
+				ageFuncs:      ageFuncs,
+				maxTestingAge: int64(10), // only for hash based
+			},
+			want: true,
+		},
+		{
+			name: "keep ci namespace",
+			args: args{
+				api: &KubernetesAPIMock{
+					namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+						Name: "project-shop-ci",
+					}},
+				},
+				ageFuncs:     ageFuncs,
+				maxReviewAge: int64(20),
+			},
+		},
+		{
+			name: "delete ci namespace",
+			args: args{
+				api: &KubernetesAPIMock{
+					namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+						Name: "project-shop-ci",
+					}},
+				},
+				ageFuncs:     ageFuncs,
+				maxReviewAge: int64(10),
+			},
+			want: true,
+		},
+		{
+			name: "skip terminating namespace",
+			args: args{
+				api: &KubernetesAPIMock{
+					namespace: v1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "project-shop-ci",
+						},
+						Status: v1.NamespaceStatus{
+							Phase: v1.NamespaceTerminating,
+						},
+					},
+				},
+				ageFuncs:     ageFuncs,
+				maxReviewAge: int64(10),
+			},
+			want: false,
+		},
+		{
+			name: "keep ns - when ns age implies deletion but pod age is to young",
+			args: args{
+				api: &KubernetesAPIMock{
+					namespace: v1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "project-shop-ci",
+						},
+					},
+				},
+				ageFuncs: []YoungestResourceAgeFunc{
+					func(_ context.Context, _ KubernetesAPI) (ResourceAge, bool, error) {
+						return ResourceAge(15), true, nil
+					},
+					func(_ context.Context, _ KubernetesAPI) (ResourceAge, bool, error) {
+						return ResourceAge(5), true, nil
+					},
+				},
+				maxReviewAge: int64(10),
+			},
+			want: false,
+		},
+		{
+			name: "delete ns - when ns implies deletion & pod age implies deletion",
+			args: args{
+				api: &KubernetesAPIMock{
+					namespace: v1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "project-shop-ci",
+						},
+					},
+				},
+				ageFuncs: []YoungestResourceAgeFunc{
+					func(_ context.Context, _ KubernetesAPI) (ResourceAge, bool, error) {
+						return ResourceAge(15), true, nil
+					},
+					func(_ context.Context, _ KubernetesAPI) (ResourceAge, bool, error) {
+						return ResourceAge(12), true, nil
+					},
+				},
+				maxReviewAge: int64(10),
+			},
+			want: true,
+		},
+		{
+			name: "protect branch",
+			args: args{
+				api: &KubernetesAPIMock{
+					namespace: v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+						Name: "project-bla-shop-ci",
+					}},
+				},
+				ageFuncs:          ageFuncs,
+				maxReviewAge:      int64(10),
+				protectedBranches: []string{"bla"},
+			},
+			want: false,
+		},
+		{
+			name: "opt out annotation",
+			args: args{
+				api: &KubernetesAPIMock{
+					namespace: v1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "project-shop-ci",
+							Annotations: map[string]string{
+								"bla": "true",
+							},
+						},
+					},
+				},
+				ageFuncs:     ageFuncs,
+				maxReviewAge: int64(10),
+				optOutAnnotations: []string{
+					"bla",
+				},
+			},
+			want: false,
+		},
+		{
+			name: "opt out annotation false",
+			args: args{
+				api: &KubernetesAPIMock{
+					namespace: v1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "project-shop-ci",
+							Annotations: map[string]string{
+								"bla": "",
+							},
+						},
+					},
+				},
+				ageFuncs:     ageFuncs,
+				maxReviewAge: int64(10),
+				optOutAnnotations: []string{
+					"bla",
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := shouldDeleteNamespace(nil, tt.args.api, tt.args.ageFuncs, tt.args.protectedBranches, tt.args.optOutAnnotations, tt.args.maxTestingAge, tt.args.maxReviewAge)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("shouldDeleteNamespace() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("shouldDeleteNamespace() = %v, want %v", got, tt.want)
 			}
 		})
 	}

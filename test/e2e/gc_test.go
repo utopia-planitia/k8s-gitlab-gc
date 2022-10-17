@@ -245,7 +245,7 @@ func getJobLogs(ctx context.Context, job *batchv1.Job, restCfg *rest.Config) (st
 
 	clientset, err := kubernetes.NewForConfig(restCfg)
 	if err != nil {
-		return "", fmt.Errorf("error in getting access to K8S: %s", err)
+		return "", fmt.Errorf("getting access to kubernetes: %v", err)
 	}
 
 	pods, err := clientset.CoreV1().Pods(job.Namespace).List(
@@ -253,11 +253,11 @@ func getJobLogs(ctx context.Context, job *batchv1.Job, restCfg *rest.Config) (st
 		metav1.ListOptions{LabelSelector: fmt.Sprintf("job=%s", job.Name)},
 	)
 	if err != nil {
-		return "", fmt.Errorf("error in list of pods: %s", err)
+		return "", fmt.Errorf("list of pods: %v", err)
 	}
 
 	if len(pods.Items) == 0 {
-		return "", fmt.Errorf("%s", "pod list is empty")
+		return "", fmt.Errorf("pod list is empty")
 	}
 
 	jobPod := pods.Items[0]
@@ -266,14 +266,14 @@ func getJobLogs(ctx context.Context, job *batchv1.Job, restCfg *rest.Config) (st
 	req := clientset.CoreV1().Pods(job.Namespace).GetLogs(jobPod.Name, &podLogOpts)
 	podLogs, err := req.Stream(ctx)
 	if err != nil {
-		return "", fmt.Errorf("error in opening stream: %s", err)
+		return "", fmt.Errorf("opening stream: %v", err)
 	}
 	defer podLogs.Close()
 
 	buf := new(bytes.Buffer)
 	_, err = io.Copy(buf, podLogs)
 	if err != nil {
-		return "", fmt.Errorf("error in copy information from podLogs to buf: %s", err)
+		return "", fmt.Errorf("copy information from podLogs to buf: %v", err)
 	}
 	str := buf.String()
 
