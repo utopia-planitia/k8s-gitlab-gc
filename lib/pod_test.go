@@ -1,6 +1,7 @@
 package gc
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -80,7 +81,7 @@ func TestYoungestPodAge(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := YoungestPodAge(nil, tt.api)
+			got, got1, err := YoungestPodAge(context.TODO(), tt.api)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("YoungestPodAge() error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -390,11 +390,6 @@ func TestYoungestDeploymentAge(t *testing.T) {
 
 func TestYoungestStatefulsetAge(t *testing.T) {
 	now := time.Now()
-
-	type args struct {
-		k8sClients KubernetesClients
-		namespace  v1.Namespace
-	}
 	tests := []struct {
 		name        string
 		api         KubernetesAPI
@@ -876,7 +871,7 @@ func Test_shouldDeleteNamespace(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := shouldDeleteNamespace(nil, tt.args.api, tt.args.ageFuncs, tt.args.protectedBranches, tt.args.optOutAnnotations, tt.args.maxTestingAge, tt.args.maxReviewAge)
+			got, err := shouldDeleteNamespace(context.TODO(), tt.args.api, tt.args.ageFuncs, tt.args.protectedBranches, tt.args.optOutAnnotations, tt.args.maxTestingAge, tt.args.maxReviewAge)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("shouldDeleteNamespace() error = %v, wantErr %v", err, tt.wantErr)
 				return
