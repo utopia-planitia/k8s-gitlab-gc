@@ -129,7 +129,7 @@ func ContinuousIntegrationNamespaces(ctx context.Context, k8sClients KubernetesC
 	return nil
 }
 
-func NamespaceAge(ctx context.Context, k8sClients KubernetesClients, namespace v1.Namespace) (ResourceAge, error) {
+func NamespaceAge(_ context.Context, _ KubernetesClients, namespace v1.Namespace) (ResourceAge, error) {
 	return ResourceAge(age(namespace.ObjectMeta.CreationTimestamp)), nil
 }
 

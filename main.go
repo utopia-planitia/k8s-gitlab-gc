@@ -22,10 +22,6 @@ var availableAgesFuncsMap = map[string]gc.YoungestResourceAgeFunc{
 	"cronjob":     gc.YoungestCronjobAge,
 }
 
-var defaultResourceAgeFuncs = []gc.YoungestResourceAgeFunc{
-	gc.NamespaceAge,
-}
-
 func main() {
 	var dryRun = flag.Bool("dry-run", false, "execute in dry-run mode - no changes will be applied")
 	var kubeconfig = flag.String("kubeconfig", "", "(optional) absolute path to the kubeconfig file")
@@ -35,7 +31,7 @@ func main() {
 	var maxReviewNamespaceAge = flag.Int64("maxReviewNamespaceAge", 60*60*24*2, "max age for review namespaces in seconds")
 	var maxBuildNamespaceAge = flag.Int64("maxBuildNamespaceAge", 60*60*2, "max age for e2e testing namespaces in seconds")
 	var optOutAnnotations = flag.String("optOutAnnotations", "disable-automatic-garbage-collection", "comma separated list of annotations to protect namespaces from deletion, annotations need to be set to the string 'true'")
-	var onlyUseAgesOf = flag.String("onlyUseAgesOf", "", fmt.Sprintf("comma separated list of kubernetes resources to use for age evaluation: \"%s\"", strings.Join(keysFrom(availableAgesFuncsMap), ",")))
+	var onlyUseAgesOf = flag.String("onlyUseAgesOf", "namespace", fmt.Sprintf("comma separated list of kubernetes resources to use for age evaluation: \"%s\"", strings.Join(keysFrom(availableAgesFuncsMap), ",")))
 
 	flag.Parse()
 
@@ -73,7 +69,16 @@ func main() {
 		BatchV1: k8s.BatchV1(),
 	}
 
-	err = gc.ContinuousIntegrationNamespaces(ctx, k8sClients, selectedAgesFuncs, strings.Split(*protectedBranches, ","), strings.Split(*optOutAnnotations, ","), *maxBuildNamespaceAge, *maxReviewNamespaceAge, *dryRun)
+	err = gc.ContinuousIntegrationNamespaces(
+		ctx,
+		k8sClients,
+		selectedAgesFuncs,
+		strings.Split(*protectedBranches, ","),
+		strings.Split(*optOutAnnotations, ","),
+		*maxBuildNamespaceAge,
+		*maxReviewNamespaceAge,
+		*dryRun,
+	)
 	if err != nil {
 		log.Fatalf("failed to clean up ci namespaces: %s", err)
 	}
@@ -88,10 +93,6 @@ func provideKubernetesClient(kubeconfig string) (*kubernetes.Clientset, error) {
 }
 
 func selectResourceAgeFuncs(onlyUseAgesOf string, ageFuncsMap map[string]gc.YoungestResourceAgeFunc) ([]gc.YoungestResourceAgeFunc, error) {
-	if onlyUseAgesOf == "" {
-		return defaultResourceAgeFuncs, nil
-	}
-
 	onlyUseAgesOfList := strings.Split(onlyUseAgesOf, ",")
 
 	selectedFuncs := []gc.YoungestResourceAgeFunc{}

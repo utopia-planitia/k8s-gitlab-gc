@@ -54,9 +54,9 @@ func TestIsHashbased(t *testing.T) {
 	}
 }
 
-type TypedCoreV1Client_mock struct { //mock CoreV1Interface
-	namespaces typedcorev1.NamespaceInterface //add setter func?
-	pods       typedcorev1.PodInterface       //add setter func?
+type TypedCoreV1Client_mock struct {
+	namespaces typedcorev1.NamespaceInterface
+	pods       typedcorev1.PodInterface
 }
 
 func (c *TypedCoreV1Client_mock) RESTClient() rest.Interface {
@@ -192,8 +192,6 @@ func (c *pods_mock) ApplyStatus(ctx context.Context, pod *corev1.PodApplyConfigu
 func (c *pods_mock) UpdateEphemeralContainers(ctx context.Context, podName string, pod *v1.Pod, opts metav1.UpdateOptions) (*v1.Pod, error) {
 	panic("mocked UpdateEphemeralContainers not implemented")
 }
-
-//	PodExpansion
 func (c *pods_mock) Bind(ctx context.Context, binding *v1.Binding, opts metav1.CreateOptions) error {
 	panic("mocked Bind not implemented")
 }
@@ -213,8 +211,8 @@ func (c *pods_mock) ProxyGet(scheme, name, port, path string, params map[string]
 	panic("mocked ProxyGet not implemented")
 }
 
-type TypedAppsV1Client_mock struct { //mock CoreV1Interface
-	deployments  typedappsv1.DeploymentInterface //add setter func?
+type TypedAppsV1Client_mock struct {
+	deployments  typedappsv1.DeploymentInterface
 	statefulsets typedappsv1.StatefulSetInterface
 	daemonsets   typedappsv1.DaemonSetInterface
 }
@@ -373,7 +371,7 @@ func (*daemonsets_mock) ApplyStatus(ctx context.Context, daemonSet *confappsv1.D
 	panic("mocked ApplyStatus not implemented")
 }
 
-type TypedBatchV1Client_mock struct { //mock BatchV1Interface
+type TypedBatchV1Client_mock struct {
 	cronjobs typedbatchv1.CronJobInterface
 }
 
@@ -429,8 +427,7 @@ func (*cronjobs_mock) ApplyStatus(ctx context.Context, cronJob *applyconfigurati
 
 func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 	type args struct {
-		k8sClients KubernetesClients
-		// k8sCoreClient     *TypedCoreV1Client_mock
+		k8sClients        KubernetesClients
 		ageFuncs          []YoungestResourceAgeFunc
 		expectedDeletes   int
 		protectedBranches []string
@@ -483,7 +480,6 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 				optOutAnnotations: []string{},
 				maxTestingAge:     int64(60 * 60 * 6),
 				maxReviewAge:      int64(60 * 60 * 24 * 2),
-				dryRun:            false,
 			},
 			wantErr: false,
 		},
@@ -526,7 +522,6 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 				optOutAnnotations: []string{},
 				maxTestingAge:     int64(60 * 60 * 6),
 				maxReviewAge:      int64(60 * 60 * 24 * 2),
-				dryRun:            false,
 			},
 			wantErr: false,
 		},
@@ -569,7 +564,6 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 				optOutAnnotations: []string{},
 				maxTestingAge:     int64(60 * 60 * 6),
 				maxReviewAge:      int64(60 * 60 * 24 * 2),
-				dryRun:            false,
 			},
 			wantErr: false,
 		},
@@ -617,7 +611,6 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 				optOutAnnotations: []string{},
 				maxTestingAge:     int64(60 * 60 * 6),
 				maxReviewAge:      int64(60 * 60 * 24 * 2),
-				dryRun:            false,
 			},
 			wantErr: false,
 		},
@@ -660,11 +653,9 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 				optOutAnnotations: []string{},
 				maxTestingAge:     int64(60 * 60 * 6),
 				maxReviewAge:      int64(60 * 60 * 24 * 2),
-				dryRun:            false,
 			},
 			wantErr: false,
 		},
-		//it should not delete ns - when ns age implies deletion but pod age is to young
 		{
 			name: "it should not delete ns - when ns age implies deletion but pod age is to young",
 			args: args{
@@ -704,11 +695,9 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 				optOutAnnotations: []string{},
 				maxTestingAge:     int64(60 * 60 * 6),
 				maxReviewAge:      int64(60 * 60 * 24 * 2),
-				dryRun:            false,
 			},
 			wantErr: false,
 		},
-		//it should delete ns - when ns implies deletion & pod age implies deletion
 		{
 			name: "it should delete ns - when ns implies deletion & pod age implies deletion",
 			args: args{
@@ -748,7 +737,6 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 				optOutAnnotations: []string{},
 				maxTestingAge:     int64(60 * 60 * 6),
 				maxReviewAge:      int64(60 * 60 * 24 * 2),
-				dryRun:            false,
 			},
 			wantErr: false,
 		},
@@ -761,7 +749,6 @@ func Test_ContinuousIntegrationNamespaces(t *testing.T) {
 			if err := ContinuousIntegrationNamespaces(ctx, tt.args.k8sClients, tt.args.ageFuncs, tt.args.protectedBranches, tt.args.optOutAnnotations, tt.args.maxTestingAge, tt.args.maxReviewAge, tt.args.dryRun); (err != nil) != tt.wantErr {
 				t.Errorf("ContinuousIntegrationNamespaces() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			//deletions := tt.args.k8sCoreClient.namespaces.deletions
 			deletions := tt.args.k8sClients.CoreV1.(*TypedCoreV1Client_mock).namespaces.(*namespaces_mock).deletions
 			if tt.args.expectedDeletes != deletions {
 				t.Errorf("deletions = %v, want %v", deletions, tt.args.expectedDeletes)
@@ -1184,7 +1171,6 @@ func TestYoungestDeploymentAge(t *testing.T) {
 		checkErrorType    bool
 		expectedErrorType error
 	}{
-		// TODO: Add test cases.
 		{
 			name: "expect list error (from k8s client side)",
 			args: args{
@@ -1356,7 +1342,6 @@ func TestYoungestStatefulsetAge(t *testing.T) {
 		checkErrorType    bool
 		expectedErrorType error
 	}{
-		// TODO: Add test cases.
 		{
 			name: "expect list error (from k8s client side)",
 			args: args{
@@ -1507,7 +1492,6 @@ func TestYoungestDaemonsetAge(t *testing.T) {
 		checkErrorType    bool
 		expectedErrorType error
 	}{
-		// TODO: Add test cases.
 		{
 			name: "expect list error (from k8s client side)",
 			args: args{
