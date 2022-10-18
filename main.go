@@ -31,7 +31,7 @@ func main() {
 	var maxReviewNamespaceAge = flag.Int64("maxReviewNamespaceAge", 60*60*24*2, "max age for review namespaces in seconds")
 	var maxBuildNamespaceAge = flag.Int64("maxBuildNamespaceAge", 60*60*2, "max age for e2e testing namespaces in seconds")
 	var optOutAnnotations = flag.String("optOutAnnotations", "disable-automatic-garbage-collection", "comma separated list of annotations to protect namespaces from deletion, annotations need to be set to the string 'true'")
-	var onlyUseAgesOf = flag.String("onlyUseAgesOf", "namespace", fmt.Sprintf("comma separated list of kubernetes resources to use for age evaluation: \"%s\"", strings.Join(keysFrom(availableAgesFuncsMap), ",")))
+	var onlyUseAgesOf = flag.String("onlyUseAgesOf", "namespace,deployment,statefulset,daemonset,cronjob", fmt.Sprintf("comma separated list of kubernetes resources to use for age evaluation: \"%s\"", strings.Join(keysFrom(availableAgesFuncsMap), ",")))
 
 	flag.Parse()
 
