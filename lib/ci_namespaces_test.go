@@ -68,10 +68,7 @@ var isHashbasedTests = []struct {
 func TestIsHashbased(t *testing.T) {
 	for _, tt := range isHashbasedTests {
 		t.Run(tt.in, func(t *testing.T) {
-			s, err := isHashbased(tt.in)
-			if err != nil {
-				t.Errorf("isHashbased (%s) returned an error", tt.in)
-			}
+			s := hashRegex.MatchString(tt.in)
 			if s != tt.out {
 				t.Errorf("isHashbased (%s) => %t want %t", tt.in, s, tt.out)
 			}

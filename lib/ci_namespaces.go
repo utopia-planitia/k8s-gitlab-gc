@@ -11,6 +11,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+var hashRegex = regexp.MustCompile("[0-9a-fA-F]{15,}$")
+
 // ContinuousIntegrationNamespaces removes no longer used namespaces
 func ContinuousIntegrationNamespaces(
 	ctx context.Context,
@@ -95,10 +97,7 @@ func shouldDeleteNamespace(
 		return false, nil
 	}
 
-	isHashbased, err := isHashbased(name)
-	if err != nil {
-		return false, fmt.Errorf("failed to check for hash based namespace '%s': %v", name, err)
-	}
+	isHashbased := hashRegex.MatchString(name)
 
 	maxAge := maxReviewAge
 	if isHashbased {
@@ -138,10 +137,6 @@ func hasOptedOut(annotations map[string]string, optOutAnnotations []string) bool
 
 func isCI(name string) bool {
 	return isTaggedBy(name, "ci")
-}
-
-func isHashbased(name string) (bool, error) {
-	return regexp.MatchString("[0-9a-fA-F]{15,}$", name)
 }
 
 func isProtected(name string, protectedBranches []string) bool {
