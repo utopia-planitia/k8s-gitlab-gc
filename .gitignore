@@ -1,3 +1,4 @@
 gitlabToken
 k8s-gitlab-gc
 .vscode/
+.env
