@@ -4,9 +4,9 @@ go 1.19
 
 require (
 	github.com/docker/docker v20.10.17+incompatible
-	k8s.io/api v0.25.4
-	k8s.io/apimachinery v0.25.4
-	k8s.io/client-go v0.25.4
+	k8s.io/api v0.25.5
+	k8s.io/apimachinery v0.25.5
+	k8s.io/client-go v0.25.5
 	sigs.k8s.io/e2e-framework v0.0.8
 )
 
@@ -51,11 +51,11 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/vladimirvivien/gexe v0.1.1 // indirect
 	go.opencensus.io v0.23.0 // indirect
-	golang.org/x/net v0.0.0-20220722155237-a158d28d115b // indirect
+	golang.org/x/net v0.3.1-0.20221206200815-1e63c2f08a10 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
-	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect
-	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/sys v0.3.0 // indirect
+	golang.org/x/term v0.3.0 // indirect
+	golang.org/x/text v0.5.0 // indirect
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
