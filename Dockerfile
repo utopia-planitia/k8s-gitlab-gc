@@ -1,5 +1,5 @@
 # compile
-FROM golang:1.20.0-alpine3.16@sha256:bd6122a9abceb1b93167e8d395fb89de0bd00cc8282b9e07b1a8074a76e82b4c AS compile
+FROM golang:1.20.1-alpine3.16@sha256:020cc6a446af866cea4bba2e5732b01620414f18c2da9a8a91c04920f2da02ce AS compile
 WORKDIR /go/src/github.com/utopia-planitia/k8s-gitlab-gc/
 
 COPY go.mod .
