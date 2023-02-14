@@ -3,7 +3,7 @@ module github.com/utopia-planitia/k8s-gitlab-gc
 go 1.19
 
 require (
-	github.com/docker/docker v20.10.23+incompatible
+	github.com/docker/docker/v23 v23.0.1+incompatible
 	k8s.io/api v0.26.1
 	k8s.io/apimachinery v0.26.1
 	k8s.io/client-go v0.26.1
