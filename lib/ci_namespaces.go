@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,6 +21,7 @@ func ContinuousIntegrationNamespaces(
 	ageFuncs []YoungestResourceAgeFunc,
 	protectedBranches,
 	optOutAnnotations []string,
+	ttlAnnotation string,
 	maxTestingAge,
 	maxReviewAge int64,
 	dryRun bool,
@@ -42,6 +44,7 @@ func ContinuousIntegrationNamespaces(
 			ageFuncs,
 			protectedBranches,
 			optOutAnnotations,
+			ttlAnnotation,
 			maxTestingAge,
 			maxReviewAge,
 		)
@@ -74,6 +77,7 @@ func shouldDeleteNamespace(
 	ageFuncs []YoungestResourceAgeFunc,
 	protectedBranches,
 	optOutAnnotations []string,
+	ttlAnnotation string,
 	maxTestingAge,
 	maxReviewAge int64,
 ) (bool, error) {
@@ -97,11 +101,18 @@ func shouldDeleteNamespace(
 		return false, nil
 	}
 
-	isHashbased := hashRegex.MatchString(name)
+	maxAge, found, err := ttlAnnotationValue(ns.ObjectMeta.Annotations, ttlAnnotation)
+	if err != nil {
+		return false, err
+	}
 
-	maxAge := maxReviewAge
-	if isHashbased {
-		maxAge = maxTestingAge
+	if !found {
+		isHashbased := hashRegex.MatchString(name)
+
+		maxAge = maxReviewAge
+		if isHashbased {
+			maxAge = maxTestingAge
+		}
 	}
 
 	age, found, err := youngestAge(ctx, ageFuncs, api)
@@ -133,6 +144,25 @@ func hasOptedOut(annotations map[string]string, optOutAnnotations []string) bool
 		return optOut == "true"
 	}
 	return false
+}
+
+func ttlAnnotationValue(annotations map[string]string, ttlAnnotation string) (maxAge int64, found bool, err error) {
+	var value string
+	var duration time.Duration
+
+	value, found = annotations[ttlAnnotation]
+	if !found {
+		return
+	}
+
+	duration, err = time.ParseDuration(value)
+	if err != nil {
+		return
+	}
+
+	maxAge = int64(duration.Seconds())
+
+	return
 }
 
 func isCI(name string) bool {

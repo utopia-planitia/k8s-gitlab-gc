@@ -141,6 +141,7 @@ func Test_shouldDeleteNamespace(t *testing.T) {
 		ageFuncs          []YoungestResourceAgeFunc
 		protectedBranches []string
 		optOutAnnotations []string
+		ttlAnnotation     string
 		maxTestingAge     int64
 		maxReviewAge      int64
 	}
@@ -346,10 +347,57 @@ func Test_shouldDeleteNamespace(t *testing.T) {
 			},
 			want: true,
 		},
+		{
+			name: "ttl annotation older then namespace age",
+			args: args{
+				api: &KubernetesAPIMock{
+					namespace: v1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "project-shop-ci",
+							Annotations: map[string]string{
+								"ttlAnnotation": "20s",
+							},
+						},
+					},
+				},
+				ageFuncs:      ageFuncs,
+				maxReviewAge:  int64(30),
+				ttlAnnotation: "ttlAnnotation",
+			},
+			want: false,
+		},
+		{
+			name: "ttl annotation younger then namespace age",
+			args: args{
+				api: &KubernetesAPIMock{
+					namespace: v1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "project-shop-ci",
+							Annotations: map[string]string{
+								"ttlAnnotation": "5s",
+							},
+						},
+					},
+				},
+				ageFuncs:      ageFuncs,
+				maxReviewAge:  int64(30),
+				ttlAnnotation: "ttlAnnotation",
+			},
+			want: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := shouldDeleteNamespace(context.TODO(), tt.args.api, tt.args.ageFuncs, tt.args.protectedBranches, tt.args.optOutAnnotations, tt.args.maxTestingAge, tt.args.maxReviewAge)
+			got, err := shouldDeleteNamespace(
+				context.TODO(),
+				tt.args.api,
+				tt.args.ageFuncs,
+				tt.args.protectedBranches,
+				tt.args.optOutAnnotations,
+				tt.args.ttlAnnotation,
+				tt.args.maxTestingAge,
+				tt.args.maxReviewAge,
+			)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("shouldDeleteNamespace() error = %v, wantErr %v", err, tt.wantErr)
 				return
