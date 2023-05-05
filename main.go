@@ -30,7 +30,8 @@ func main() {
 	var maxGitlabExecutorAge = flag.Int64("maxGitlabExecutorAge", 70*60, "max age for gitlab executor pods in seconds")
 	var maxReviewNamespaceAge = flag.Int64("maxReviewNamespaceAge", 60*60*24*2, "max age for review namespaces in seconds")
 	var maxBuildNamespaceAge = flag.Int64("maxBuildNamespaceAge", 60*60*2, "max age for e2e testing namespaces in seconds")
-	var optOutAnnotations = flag.String("optOutAnnotations", "disable-automatic-garbage-collection", "comma separated list of annotations to protect namespaces from deletion, annotations need to be set to the string 'true'")
+	var optOutAnnotations = flag.String("optOutAnnotations", "disable-automatic-garbage-collection,utopia-planitia/k8s-gitlab-gc/disable-automatic-garbage-collection", "comma separated list of annotations to protect namespaces from deletion, annotations need to be set to the string 'true'")
+	var ttlAnnotation = flag.String("ttlAnnotation", "utopia-planitia/k8s-gitlab-gc/ns-ttl-duration", "name of the annotation (key) to define the time to life for for the namespace")
 	var onlyUseAgesOf = flag.String("onlyUseAgesOf", "namespace,deployment,statefulset,daemonset,cronjob", fmt.Sprintf("comma separated list of kubernetes resources to use for age evaluation: \"%s\"", strings.Join(keysFrom(availableAgesFuncsMap), ",")))
 
 	flag.Parse()
@@ -43,6 +44,7 @@ func main() {
 	log.Printf("maxReviewNamespaceAge: %v\n", *maxReviewNamespaceAge)
 	log.Printf("maxBuildNamespaceAge: %v\n", *maxBuildNamespaceAge)
 	log.Printf("optOutAnnotations: %v\n", *optOutAnnotations)
+	log.Printf("ttlAnnotation: %v\n", *ttlAnnotation)
 	log.Printf("onlyUseAgesOf: %v\n", *onlyUseAgesOf)
 
 	selectedAgesFuncs, err := selectResourceAgeFuncs(*onlyUseAgesOf, availableAgesFuncsMap)
@@ -69,6 +71,7 @@ func main() {
 		selectedAgesFuncs,
 		strings.Split(*protectedBranches, ","),
 		strings.Split(*optOutAnnotations, ","),
+		*ttlAnnotation,
 		*maxBuildNamespaceAge,
 		*maxReviewNamespaceAge,
 		*dryRun,
