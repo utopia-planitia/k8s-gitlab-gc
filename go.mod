@@ -4,9 +4,9 @@ go 1.19
 
 require (
 	github.com/docker/docker v20.10.25+incompatible
-	k8s.io/api v0.27.2
-	k8s.io/apimachinery v0.27.2
-	k8s.io/client-go v0.27.2
+	k8s.io/api v0.27.3
+	k8s.io/apimachinery v0.27.3
+	k8s.io/client-go v0.27.3
 	sigs.k8s.io/e2e-framework v0.2.0
 )
 
