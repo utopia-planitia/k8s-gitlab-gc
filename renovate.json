@@ -1,4 +1,5 @@
 {
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:base"
   ],
@@ -26,7 +27,7 @@
     },
     {
       "fileMatch": [
-        "^.github/workflows/lint.yml$"
+        "\\/lint\\.yml$"
       ],
       "matchStrings": [
         "^\\s+version: (?<currentValue>[^\\s]+?)$"
