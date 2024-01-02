@@ -10,7 +10,7 @@ lint:
 		-w ${PWD} \
 		-v ${PWD}:${PWD} \
 		--env GOFLAGS=-buildvcs=false \
-		docker.io/golangci/golangci-lint:v1.48.0-alpine \
+		docker.io/golangci/golangci-lint:v1.55.2-alpine \
 		golangci-lint --timeout=540s run ./...
 
 .PHONY: test
