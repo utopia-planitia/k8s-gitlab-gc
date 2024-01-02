@@ -2,7 +2,7 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "configMigration": true,
   "extends": [
-    "config:base"
+    "config:recommended"
   ],
   "pinDigests": true,
   "postUpdateOptions": [
@@ -15,8 +15,9 @@
   ],
   "automerge": true,
   "automergeType": "pr",
-  "regexManagers": [
+  "customManagers": [
     {
+      "customType": "regex",
       "fileMatch": [
         "^Makefile$"
       ],
@@ -26,6 +27,7 @@
       "datasourceTemplate": "docker"
     },
     {
+      "customType": "regex",
       "fileMatch": [
         ".*"
       ],
