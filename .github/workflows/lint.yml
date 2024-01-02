@@ -7,13 +7,15 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
       - uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5
         with:
-          go-version: '^1.18.2'
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+          go-version: '1.21.5'
+          cache: false
       - name: golangci-lint
         uses: golangci/golangci-lint-action@3a919529898de77ec3da873e3063ca4b10e7f5cc # v3
         with:
+          install-mode: goinstall
           # Required: the version of golangci-lint is required and must be specified without patch version: we always use the latest patch version.
-          version: v1.53.3
-          args: --timeout 5m0s -v
+          version: v1.55.2
+          args: --timeout 5m0s

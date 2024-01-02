@@ -5,13 +5,11 @@ export
 .PHONY: lint
 lint:
 	docker run \
-		-ti \
 		--rm \
 		-w ${PWD} \
 		-v ${PWD}:${PWD} \
-		--env GOFLAGS=-buildvcs=false \
-		docker.io/golangci/golangci-lint:v1.48.0-alpine \
-		golangci-lint --timeout=540s run ./...
+		docker.io/golangci/golangci-lint:v1.55.2 \
+		golangci-lint --timeout 5m0s run ./...
 
 .PHONY: test
 test:
