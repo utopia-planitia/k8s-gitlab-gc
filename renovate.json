@@ -29,7 +29,7 @@
         ".*"
       ],
       "matchStrings": [
-        "version:\\s+(?<currentValue>[^\\s]+)\\s+# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)"
+        "\\s+[\"']?(?<currentValue>[^\\s\"']+?)[\"']?\\s+# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)"
       ]
     }
   ],
