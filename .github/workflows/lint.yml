@@ -16,6 +16,5 @@ jobs:
         uses: golangci/golangci-lint-action@3a919529898de77ec3da873e3063ca4b10e7f5cc # v3
         with:
           install-mode: goinstall
-          # Required: the version of golangci-lint is required and must be specified without patch version: we always use the latest patch version.
-          version: v1.55.2
+          version: v1.55.2 # renovate: datasource=github-tags depName=golangci/golangci-lint
           args: --timeout 5m0s

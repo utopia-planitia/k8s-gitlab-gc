@@ -26,13 +26,11 @@
     },
     {
       "fileMatch": [
-        "^\\.github/workflows/lint\\.yml$"
+        ".*"
       ],
       "matchStrings": [
-        "\\s+version:\\s+(?<currentValue>.*?)\\s*$"
-      ],
-      "depNameTemplate": "golangci/golangci-lint",
-      "datasourceTemplate": "github-tags"
+        "version:\\s+(?<currentValue>[^\\s]+)\\s+# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)"
+      ]
     }
   ],
   "packageRules": [
