@@ -26,10 +26,10 @@
     },
     {
       "fileMatch": [
-        "\\/lint\\.yml$"
+        "(^|/)lint\\.yml$"
       ],
       "matchStrings": [
-        "^\\s+version: (?<currentValue>[^\\s]+?)$"
+        "^\\s+version:\\s+(?<currentValue>[^\\s]+)$"
       ],
       "depNameTemplate": "golangci/golangci-lint",
       "datasourceTemplate": "github-tags"
