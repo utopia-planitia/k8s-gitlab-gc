@@ -20,9 +20,8 @@
         "^Makefile$"
       ],
       "matchStrings": [
-        "(?<packageName>docker\\.io\\/golangci\\/golangci-lint):(?<currentValue>[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})(?:@(?<currentDigest>sha256:[a-f0-9]+))?"
+        "(?<depName>docker\\.io\\/golangci\\/golangci-lint):(?<currentValue>[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})(?:@(?<currentDigest>sha256:[a-f0-9]+))?"
       ],
-      "depNameTemplate": "golangci/golangci-lint",
       "datasourceTemplate": "docker"
     },
     {
@@ -37,11 +36,6 @@
     }
   ],
   "packageRules": [
-    {
-      "matchDepNames": ["golangci/golangci-lint"],
-      "groupName": "golangci/golangci-lint",
-      "groupSlug": "golangci-golangci-lint"
-    },
     {
       "matchPackagePatterns": [
         "^k8s.io/client-go$"
