@@ -19,7 +19,7 @@
         "^.github/workflows/lint.yml$"
       ],
       "matchStrings": [
-        "version: (?<currentValue>.*?)\n"
+        "^\\s+version: (?<currentValue>[^\\s]+?)$"
       ],
       "depNameTemplate": "golangci/golangci-lint",
       "datasourceTemplate": "github-tags"
