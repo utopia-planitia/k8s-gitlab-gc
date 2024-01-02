@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/env"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/envfuncs"
+	"sigs.k8s.io/e2e-framework/support/kind"
 )
 
 type key int
@@ -73,7 +74,7 @@ func TestMain(m *testing.M) {
 		kindClusterName := envconf.RandomName("k8s-gitlab-gc-kind", 25)
 
 		testenv.Setup(
-			envfuncs.CreateKindCluster(kindClusterName),
+			envfuncs.CreateCluster(kind.NewProvider(), kindClusterName),
 			// note: if you use latest tage you need to use ImagePullPolicy `IfNotPresented` or `Never``
 			//   see: https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster
 			envfuncs.LoadDockerImageToCluster(kindClusterName, gcImageNameAndTag),
@@ -85,7 +86,7 @@ func TestMain(m *testing.M) {
 
 		testenv.Finish(
 			envfuncs.DeleteNamespace(namespace),
-			envfuncs.DestroyKindCluster(kindClusterName),
+			envfuncs.DestroyCluster(kindClusterName),
 		)
 	}
 
