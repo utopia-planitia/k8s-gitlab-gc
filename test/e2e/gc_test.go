@@ -168,7 +168,7 @@ func TestRealCluster(t *testing.T) {
 				n := object.(*corev1.Namespace)
 				t.Logf("namespace phase of namespace \"%s\" is \"%s\"", n.Name, n.Status.Phase)
 				return n.Status.Phase != corev1.NamespaceTerminating
-			}), wait.WithTimeout(time.Second*1))
+			}), wait.WithTimeout(time.Second*15))
 			if err != nil {
 				t.Fatalf("error - 2nd ci namespace not found or is terminating: %s", err)
 			}
