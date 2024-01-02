@@ -38,6 +38,11 @@
   ],
   "packageRules": [
     {
+      "matchDepNames": ["golangci/golangci-lint"],
+      "groupName": "golangci/golangci-lint",
+      "groupSlug": "golangci-golangci-lint"
+    },
+    {
       "matchPackagePatterns": [
         "^k8s.io/client-go$"
       ],
