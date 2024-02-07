@@ -11,6 +11,14 @@ jobs:
       - uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5
         with:
           go-version: '1.22.0' # renovate: datasource=golang-version depName=go
+      - name: install latest docker
+        run: |
+          wget --output-document=docker-ce.asc https://download.docker.com/linux/ubuntu/gpg
+          sudo install -D -o root -g root -m 644 docker-ce.asc /etc/apt/keyrings/docker-ce.asc
+          printf 'deb [arch=amd64 signed-by=/etc/apt/keyrings/docker-ce.asc] https://download.docker.com/linux/ubuntu %s stable\n' "$(lsb_release -sc)" | tee docker-ce.list
+          sudo install -D -o root -g root -m 644 docker-ce.list /etc/apt/sources.list.d/docker-ce.list
+          sudo apt-get update
+          sudo apt-get install docker-ce
       - run: docker version
       - run: go version
       - run: go test ./test/e2e
