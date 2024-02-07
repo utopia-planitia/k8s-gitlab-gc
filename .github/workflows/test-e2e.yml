@@ -11,5 +11,6 @@ jobs:
       - uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5
         with:
           go-version: '1.22.0' # renovate: datasource=golang-version depName=go
+      - run: docker version
       - run: go version
       - run: go test ./test/e2e
