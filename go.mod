@@ -1,8 +1,6 @@
 module github.com/utopia-planitia/k8s-gitlab-gc
 
-go 1.22.0
-
-toolchain go1.22.2
+go 1.22.2
 
 require (
 	github.com/docker/docker v26.0.1+incompatible
