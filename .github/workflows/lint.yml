@@ -16,5 +16,5 @@ jobs:
         uses: golangci/golangci-lint-action@a4f60bb28d35aeee14e6880718e0c85ff1882e64 # v6
         with:
           install-mode: goinstall
-          version: v1.58.0 # renovate: datasource=github-tags depName=golangci/golangci-lint
+          version: v1.58.1 # renovate: datasource=github-tags depName=golangci/golangci-lint
           args: --timeout 5m0s
