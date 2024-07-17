@@ -6,9 +6,9 @@ toolchain go1.22.5
 
 require (
 	github.com/docker/docker v27.0.3+incompatible
-	k8s.io/api v0.30.2
-	k8s.io/apimachinery v0.30.2
-	k8s.io/client-go v0.30.2
+	k8s.io/api v0.30.3
+	k8s.io/apimachinery v0.30.3
+	k8s.io/client-go v0.30.3
 	sigs.k8s.io/e2e-framework v0.4.0
 )
 
