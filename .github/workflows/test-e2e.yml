@@ -10,7 +10,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
       - uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5
         with:
-          go-version: '1.24.2' # renovate: datasource=golang-version depName=go
+          go-version: '1.24.3' # renovate: datasource=golang-version depName=go
       - name: install latest docker
         run: |
           wget --output-document=docker-ce.asc https://download.docker.com/linux/ubuntu/gpg
