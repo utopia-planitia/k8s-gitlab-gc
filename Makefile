@@ -8,7 +8,7 @@ lint:
 		--rm \
 		-w ${PWD} \
 		-v ${PWD}:${PWD} \
-		docker.io/golangci/golangci-lint:v2.7.2 \
+		docker.io/golangci/golangci-lint:v2.8.0 \
 		golangci-lint --timeout 5m0s run ./...
 
 .PHONY: test
