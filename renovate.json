@@ -18,8 +18,8 @@
   "customManagers": [
     {
       "customType": "regex",
-      "fileMatch": [
-        "^Makefile$"
+      "managerFilePatterns": [
+        "/^Makefile$/"
       ],
       "matchStrings": [
         "(?<depName>docker\\.io\\/golangci\\/golangci-lint):(?<currentValue>[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})(?:@(?<currentDigest>sha256:[a-f0-9]+))?"
@@ -28,8 +28,8 @@
     },
     {
       "customType": "regex",
-      "fileMatch": [
-        ".*"
+      "managerFilePatterns": [
+        "/.*/"
       ],
       "matchStrings": [
         "\\s+[\"']?(?<currentValue>[^\\s\"']+?)[\"']?\\s+# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)"
